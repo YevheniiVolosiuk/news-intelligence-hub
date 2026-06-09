@@ -1,5 +1,5 @@
 import {Controller, Get, ServiceUnavailableException} from '@nestjs/common';
-import {Public} from '../common/decorators/public.decorator';
+import {Public} from '../../common/decorators/public.decorator';
 import {HealthReport, HealthService} from './health.service';
 
 @Controller('health')

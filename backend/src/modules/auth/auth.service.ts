@@ -11,13 +11,13 @@ import {
   CONFIRMATION_LINK_NOTIFIER,
   ConfirmationLinkNotifier,
 } from './confirmation-link-notifier';
-import {CLOCK, Clock} from '../common/utils/clock';
+import {CLOCK, Clock} from '../../common/utils/clock';
 import {ConfirmationTokensRepository} from './confirmation-tokens.repository';
 import {PasswordHasher} from './password-hasher';
 import {
   EmailAlreadyRegisteredError,
   UsersRepository,
-} from '../modules/users/users.repository';
+} from '../users/users.repository';
 
 export interface RegisterResult {
   userId: string;

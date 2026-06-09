@@ -1,8 +1,8 @@
 import {Injectable, Logger, OnModuleDestroy} from '@nestjs/common';
 import {Pool} from 'pg';
 import {Redis} from 'ioredis';
-import {createPool} from '../infra/db';
-import {createRedis} from '../infra/redis';
+import {createPool} from '../../infra/db';
+import {createRedis} from '../../infra/redis';
 
 interface DependencyStatus {
   ok: boolean;

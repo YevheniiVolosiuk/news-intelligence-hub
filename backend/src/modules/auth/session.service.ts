@@ -1,6 +1,6 @@
 import {Injectable, Logger} from '@nestjs/common';
 import * as jose from 'jose';
-import {AuthenticatedUser} from '../common/decorators/current-user.decorator';
+import {AuthenticatedUser} from '../../common/decorators/current-user.decorator';
 
 export interface CookieOptions {
   httpOnly: true;

@@ -14,11 +14,11 @@ import {AuthService} from './auth.service';
 import {
   AuthenticatedUser,
   CurrentUser,
-} from '../common/decorators/current-user.decorator';
+} from '../../common/decorators/current-user.decorator';
 import {LoginService} from './login.service';
-import {Public} from '../common/decorators/public.decorator';
+import {Public} from '../../common/decorators/public.decorator';
 import {SessionService} from './session.service';
-import {UsersRepository} from '../modules/users/users.repository';
+import {UsersRepository} from '../users/users.repository';
 import {ConfirmDto} from './dto/confirm.dto';
 import {LoginDto} from './dto/login.dto';
 import {RegisterDto} from './dto/register.dto';
