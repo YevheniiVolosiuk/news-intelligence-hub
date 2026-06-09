@@ -9,13 +9,17 @@ import {
 import {AppModule} from '../../src/app.module';
 import {CONFIRMATION_LINK_NOTIFIER} from '../../src/modules/auth/confirmation-link-notifier';
 import {CLOCK} from '../../src/common/utils/clock';
+import {FEED_VALIDATOR} from '../../src/modules/feeds/feed-validator';
 import {runMigrations} from '../../src/infra/database/migrate';
 import {CapturingConfirmationLinkNotifier} from './capturing-notifier';
+import {StubFeedValidator} from './stub-feed-validator';
 
 export interface E2EHarness {
   app: INestApplication;
   pool: Pool;
   notifier: CapturingConfirmationLinkNotifier;
+  /** Deterministic FeedValidator double; stub specific URLs to force results. */
+  feedValidator: StubFeedValidator;
   /** Mutate this to control what the clock returns during the test. */
   clock: {now: () => Date};
   close: () => Promise<void>;
@@ -43,10 +47,13 @@ export async function startE2EHarness(): Promise<E2EHarness> {
   await runMigrations(databaseUrl);
 
   const notifier = new CapturingConfirmationLinkNotifier();
+  const feedValidator = new StubFeedValidator();
   const clockState = {now: () => new Date()};
   const moduleRef = await Test.createTestingModule({imports: [AppModule]})
     .overrideProvider(CONFIRMATION_LINK_NOTIFIER)
     .useValue(notifier)
+    .overrideProvider(FEED_VALIDATOR)
+    .useValue(feedValidator)
     .overrideProvider(CLOCK)
     .useFactory({factory: () => () => clockState.now()})
     .compile();
@@ -62,6 +69,7 @@ export async function startE2EHarness(): Promise<E2EHarness> {
     app,
     pool,
     notifier,
+    feedValidator,
     clock: clockState,
     close: async () => {
       await pool.end().catch(() => undefined);
