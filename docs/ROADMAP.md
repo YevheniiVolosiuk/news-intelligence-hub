@@ -10,6 +10,12 @@ this file, find the current slice, continue.
 **Per-slice flow:** `(/grill-with-docs if design-heavy)` -> `/to-prd` -> `/to-issues` -> `/tdd`.
 Build one slice top-to-bottom (DB -> API -> worker -> UI) before starting the next.
 
+> **Don't forget — grill the `_grill first_` slices (4 and 5) before writing their PRD.**
+> Run `/grill-with-docs` *before* `/to-prd` on the LLM pipeline (Slice 4) and deduplication
+> (Slice 5). That is where the 25-point Architecture score is won and where the spec
+> deliberately leaves the design to you — going straight to `/to-prd` lets the agent invent
+> the design instead of you owning it. The easy slices (auth, feed CRUD) can skip the grill.
+
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(Must)** gate · **(Should)** bonus · **(Could)** bonus
 
 ---
