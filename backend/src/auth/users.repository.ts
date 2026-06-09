@@ -55,6 +55,31 @@ export class UsersRepository {
     return rows[0].password_hash;
   }
 
+  /**
+   * The tenant-scoping primitive for the User resource.
+   *
+   * Returns the row **only** when `id` matches `callerId`. When they differ
+   * the query returns zero rows — isolation is enforced inside the SQL, not
+   * in application code.
+   *
+   * Pattern for Slice 2+ (Feeds, Articles, Labelling, Graph):
+   * ```sql
+   *   SELECT … FROM <table> WHERE <pk> = $1 AND user_id = $2
+   * ```
+   * The second `AND` clause is always the caller's user id.  Every
+   * User-owned read goes through this shape; no resource may be fetched
+   * by primary key alone.
+   */
+  async findById(id: string, callerId: string): Promise<UserRow | null> {
+    const {rows} = await this.pool.query<UserRow>(
+      `SELECT id, email, confirmed_at
+         FROM users
+        WHERE id = $1 AND id = $2`,
+      [id, callerId],
+    );
+    return rows[0] ?? null;
+  }
+
   async create(email: string, passwordHash: string): Promise<UserRow> {
     try {
       const {rows} = await this.pool.query<UserRow>(

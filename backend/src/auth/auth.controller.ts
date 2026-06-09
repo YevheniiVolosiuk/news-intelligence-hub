@@ -1,10 +1,21 @@
-import {Body, Controller, Get, HttpCode, Post, Res} from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Logger,
+  NotFoundException,
+  Param,
+  Post,
+  Res,
+} from '@nestjs/common';
 import {Response} from 'express';
 import {AuthService} from './auth.service';
 import {CurrentUser} from './current-user.decorator';
 import {LoginService} from './login.service';
 import {Public} from './public.decorator';
 import {AuthenticatedUser, SessionService} from './session.service';
+import {UsersRepository} from './users.repository';
 import {ConfirmDto} from './dto/confirm.dto';
 import {LoginDto} from './dto/login.dto';
 import {RegisterDto} from './dto/register.dto';
@@ -35,10 +46,13 @@ interface SafeProfile {
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly auth: AuthService,
     private readonly loginService: LoginService,
     private readonly sessions: SessionService,
+    private readonly users: UsersRepository,
   ) {}
 
   @Public()
@@ -102,5 +116,24 @@ export class AuthController {
       this.sessions.getClearCookieOptions(),
     );
     return {status: 'logged_out'};
+  }
+
+  /**
+   * Tenant-scoped user fetch. The data layer enforces that only the
+   * authenticated user's own row is ever returned (WHERE id = $1 AND id = $2).
+   */
+  @Get('users/:id')
+  async getUser(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<SafeProfile> {
+    const row = await this.users.findById(id, user.userId);
+    if (!row) {
+      this.logger.log(
+        `tenant-access-denied targetId=${id} callerId=${user.userId}`,
+      );
+      throw new NotFoundException();
+    }
+    return {id: row.id, email: row.email};
   }
 }
