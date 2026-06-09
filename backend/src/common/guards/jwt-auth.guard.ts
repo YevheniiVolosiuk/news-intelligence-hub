@@ -6,12 +6,12 @@ import {
 } from '@nestjs/common';
 import {Reflector} from '@nestjs/core';
 import {IS_PUBLIC_KEY} from '../decorators/public.decorator';
-import {SessionService} from '../../modules/auth/session.service';
+import {JwtVerifier} from '../auth/jwt-verifier';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
-    private readonly sessions: SessionService,
+    private readonly verifier: JwtVerifier,
     private readonly reflector: Reflector,
   ) {}
 
@@ -26,13 +26,13 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const token = request.cookies?.[this.sessions.getCookieName()];
+    const token = request.cookies?.[this.verifier.getCookieName()];
 
     if (!token) {
       throw new UnauthorizedException();
     }
 
-    const user = await this.sessions.verifyToken(token);
+    const user = await this.verifier.verifyToken(token);
     if (!user) {
       throw new UnauthorizedException();
     }

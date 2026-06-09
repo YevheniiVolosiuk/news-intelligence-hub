@@ -24,9 +24,7 @@ export interface ConfirmationLinkDelivery {
  * without any caller change.
  */
 export interface ConfirmationLinkNotifier {
-  notify(
-    payload: ConfirmationLinkPayload,
-  ): Promise<ConfirmationLinkDelivery>;
+  notify(payload: ConfirmationLinkPayload): Promise<ConfirmationLinkDelivery>;
 }
 
 /** Nest DI token for the notifier seam. */

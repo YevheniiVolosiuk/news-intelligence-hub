@@ -15,6 +15,7 @@ import {
   AuthenticatedUser,
   CurrentUser,
 } from '../../common/decorators/current-user.decorator';
+import {JwtVerifier} from '../../common/auth/jwt-verifier';
 import {LoginService} from './login.service';
 import {Public} from '../../common/decorators/public.decorator';
 import {SessionService} from './session.service';
@@ -55,6 +56,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly loginService: LoginService,
     private readonly sessions: SessionService,
+    private readonly verifier: JwtVerifier,
     private readonly users: UsersRepository,
   ) {}
 
@@ -113,7 +115,7 @@ export class AuthController {
   @HttpCode(200)
   logout(@Res({passthrough: true}) res: Response): {status: string} {
     res.cookie(
-      this.sessions.getCookieName(),
+      this.verifier.getCookieName(),
       '',
       this.sessions.getClearCookieOptions(),
     );

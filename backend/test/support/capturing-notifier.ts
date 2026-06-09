@@ -12,7 +12,9 @@ import {
 export class CapturingConfirmationLinkNotifier implements ConfirmationLinkNotifier {
   readonly captured: ConfirmationLinkPayload[] = [];
 
-  async notify(payload: ConfirmationLinkPayload): Promise<ConfirmationLinkDelivery> {
+  async notify(
+    payload: ConfirmationLinkPayload,
+  ): Promise<ConfirmationLinkDelivery> {
     this.captured.push(payload);
     return {confirmationUrl: payload.confirmationUrl};
   }

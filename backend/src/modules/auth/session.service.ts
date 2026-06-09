@@ -1,6 +1,6 @@
 import {Injectable, Logger} from '@nestjs/common';
 import * as jose from 'jose';
-import {AuthenticatedUser} from '../../common/decorators/current-user.decorator';
+import {JwtVerifier} from '../../common/auth/jwt-verifier';
 
 export interface CookieOptions {
   httpOnly: true;
@@ -18,14 +18,9 @@ export interface SessionCookie {
 @Injectable()
 export class SessionService {
   private readonly logger = new Logger(SessionService.name);
-  private readonly secret: Uint8Array;
-  private readonly sessionCookieName: string;
   private readonly sessionCookieSecure: boolean;
 
-  constructor() {
-    const raw = process.env.JWT_SECRET ?? 'change_me_in_env';
-    this.secret = new TextEncoder().encode(raw);
-    this.sessionCookieName = process.env.SESSION_COOKIE_NAME ?? 'nih_session';
+  constructor(private readonly verifier: JwtVerifier) {
     this.sessionCookieSecure = process.env.SESSION_COOKIE_SECURE === 'true';
   }
 
@@ -35,11 +30,11 @@ export class SessionService {
       .setProtectedHeader({alg})
       .setIssuedAt()
       .setExpirationTime(process.env.JWT_TTL ?? '7d')
-      .sign(this.secret);
+      .sign(this.verifier.getSecret());
 
     this.logger.log(`session created userId=${userId}`);
     return {
-      name: this.sessionCookieName,
+      name: this.verifier.getCookieName(),
       value: jwt,
       options: {
         httpOnly: true,
@@ -48,22 +43,6 @@ export class SessionService {
         path: '/',
       },
     };
-  }
-
-  async verifyToken(token: string): Promise<AuthenticatedUser | null> {
-    try {
-      const {payload} = await jose.jwtVerify(token, this.secret);
-      return {
-        userId: payload.userId as string,
-        email: payload.email as string,
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  getCookieName(): string {
-    return this.sessionCookieName;
   }
 
   getClearCookieOptions(): CookieOptions & {expires: Date} {

@@ -15,7 +15,9 @@ import {
 export class DevModeConfirmationLinkNotifier implements ConfirmationLinkNotifier {
   private readonly logger = new Logger(DevModeConfirmationLinkNotifier.name);
 
-  async notify(payload: ConfirmationLinkPayload): Promise<ConfirmationLinkDelivery> {
+  async notify(
+    payload: ConfirmationLinkPayload,
+  ): Promise<ConfirmationLinkDelivery> {
     this.logger.log(
       `DEV MODE confirmation link issued userId=${payload.userId} ` +
         `email=${payload.email} url=${payload.confirmationUrl}`,

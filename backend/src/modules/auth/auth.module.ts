@@ -6,6 +6,7 @@ import {CLOCK} from '../../common/utils/clock';
 import {ConfirmationTokensRepository} from './confirmation-tokens.repository';
 import {CONFIRMATION_LINK_NOTIFIER} from './confirmation-link-notifier';
 import {DevModeConfirmationLinkNotifier} from './dev-mode-confirmation-link-notifier';
+import {JwtVerifier} from '../../common/auth/jwt-verifier';
 import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
 import {LoginService} from './login.service';
 import {PasswordHasher} from './password-hasher';
@@ -16,6 +17,7 @@ import {UsersModule} from '../users/users.module';
   imports: [UsersModule],
   controllers: [AuthController],
   providers: [
+    JwtVerifier,
     AuthService,
     LoginService,
     SessionService,
