@@ -12,9 +12,7 @@ import {
 } from '@/components/ui/card';
 import {Field, FieldGroup, FieldLabel} from '@/components/ui/field';
 import {Input} from '@/components/ui/input';
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
+import {API_BASE_URL} from '@/lib/api';
 
 type ConfirmOutcome =
   | 'loading'
