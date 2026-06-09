@@ -19,6 +19,39 @@ Hold for every slice:
 - Tenancy enforced at the data layer, not just the UI (Principle 4); reject other Users' resources requested by direct ID. See ADR-0001.
 - Meaningful commits showing progression (NFR-6) — never one big dump.
 
+## Backend architecture
+
+Feature-first modular monolith under `backend/src/`. Keep it pragmatic — no
+Clean Architecture layers, no `application/domain/presentation` folders inside
+modules.
+
+- `modules/<domain>/` — one folder per business domain (`auth`, `users`,
+  `health`, …). Controller, services, DTOs (`dto/`), and the domain's
+  repositories live together. Each domain owns a `<domain>.module.ts` that
+  declares its providers and `exports` what other modules consume.
+- `common/` — cross-cutting, domain-agnostic code reused by 2+ modules:
+  `decorators/`, `guards/`, `filters/`, `interceptors/`, `pipes/`, `utils/`.
+  `common` must never import from `modules/` (dependency flows
+  `modules → common`, never back).
+- `infra/` — external integrations only: `database/`, `cache/`, `queues/`
+  (add `mail/`, `storage/` when a real one lands). No business logic.
+- `app.module.ts` — pure composition: imports the domain + infra modules,
+  declares nothing of its own.
+- Entrypoints (`main.ts`, `worker.ts`, `bull-board.ts`) stay at `src/` root so
+  their `dist/*.js` paths stay stable for `package.json`/Docker/compose.
+
+Rules when adding code:
+
+- A repository lives with its domain in `modules/<domain>/`, never in another
+  module. Cross-domain access goes through the owning module's `exports`
+  (e.g. `AuthModule` imports `UsersModule` to use `UsersRepository`).
+- Shared types travel with the shared abstraction, not a feature service
+  (e.g. `AuthenticatedUser` lives in `common/decorators/current-user.decorator`).
+- Don't create empty scaffolding folders — add an `infra/*` or `common/*`
+  subfolder only when the first real file arrives.
+- Watch for circular imports between modules; if two domains need each other,
+  the shared piece belongs in `common`.
+
 ## Frontend styling
 
 - shadcn/ui (New York, `slate` base) is the component system. Add components with
