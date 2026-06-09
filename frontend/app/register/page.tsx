@@ -2,8 +2,20 @@
 
 import {useState, type FormEvent} from 'react';
 import {Button} from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field';
 import {Input} from '@/components/ui/input';
-import {Label} from '@/components/ui/label';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
@@ -71,84 +83,142 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-8 px-6 py-12">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Create your account
-        </h1>
-        <p className="text-sm text-slate-400">
-          Start turning your RSS feeds into a personal intelligence graph.
-        </p>
-      </header>
+    <section className="bg-foreground dark:bg-background relative flex min-h-screen items-center justify-center">
+      <div className="pointer-events-none absolute inset-0 right-0 hidden overflow-hidden md:block">
+        {/* Outer big circle */}
+        <div className="absolute left-1/1 top-0 h-[650px] w-[650px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10" />
+        {/* Inner circle */}
+        <div className="bg-foreground dark:bg-background absolute left-1/1 top-0 h-[175px] w-[175px] -translate-x-1/2 -translate-y-1/2 rounded-full" />
+      </div>
 
-      {success ? (
-        <PostRegistration success={success} email={email} />
-      ) : (
-        <form
-          onSubmit={onSubmit}
-          noValidate
-          className="space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-6"
-        >
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              aria-invalid={Boolean(fieldErrors.email)}
-              aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-              required
-            />
-            {fieldErrors.email ? (
-              <p id="email-error" className="text-xs text-rose-400">
-                {fieldErrors.email}
-              </p>
-            ) : null}
-          </div>
+      <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-0 md:py-20">
+        <Card className="relative max-w-lg px-6 py-8 sm:p-12">
+          <CardHeader className="gap-6 p-0 text-center">
+            <div className="flex flex-col gap-1">
+              <CardTitle className="text-card-foreground text-2xl font-medium">
+                {success ? 'Confirm your email' : 'Create your account'}
+              </CardTitle>
+              <CardDescription className="text-muted-foreground text-sm font-normal">
+                {success
+                  ? 'One more step to activate your account.'
+                  : 'Turn your RSS feeds into a personal intelligence graph.'}
+              </CardDescription>
+            </div>
+          </CardHeader>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              aria-invalid={Boolean(fieldErrors.password)}
-              aria-describedby={
-                fieldErrors.password ? 'password-error' : 'password-hint'
-              }
-              required
-            />
-            {fieldErrors.password ? (
-              <p id="password-error" className="text-xs text-rose-400">
-                {fieldErrors.password}
-              </p>
+          <CardContent className="p-0">
+            {success ? (
+              <PostRegistration success={success} email={email} />
             ) : (
-              <p id="password-hint" className="text-xs text-slate-500">
-                Use at least {PASSWORD_MIN_LENGTH} characters.
-              </p>
+              <form onSubmit={onSubmit} noValidate>
+                <FieldGroup className="gap-6">
+                  <div className="flex flex-col gap-4">
+                    <Field className="gap-1.5">
+                      <FieldLabel
+                        htmlFor="email"
+                        className="text-muted-foreground text-sm font-normal"
+                      >
+                        Email*
+                      </FieldLabel>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        aria-invalid={Boolean(fieldErrors.email)}
+                        aria-describedby={
+                          fieldErrors.email ? 'email-error' : undefined
+                        }
+                        required
+                        className="dark:bg-background h-9 shadow-xs"
+                      />
+                      {fieldErrors.email ? (
+                        <FieldDescription
+                          id="email-error"
+                          className="text-destructive text-xs"
+                        >
+                          {fieldErrors.email}
+                        </FieldDescription>
+                      ) : null}
+                    </Field>
+
+                    <Field className="gap-1.5">
+                      <FieldLabel
+                        htmlFor="password"
+                        className="text-muted-foreground text-sm font-normal"
+                      >
+                        Password*
+                      </FieldLabel>
+                      <Input
+                        id="password"
+                        name="password"
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        aria-invalid={Boolean(fieldErrors.password)}
+                        aria-describedby={
+                          fieldErrors.password
+                            ? 'password-error'
+                            : 'password-hint'
+                        }
+                        required
+                        className="dark:bg-background h-9 shadow-xs"
+                      />
+                      {fieldErrors.password ? (
+                        <FieldDescription
+                          id="password-error"
+                          className="text-destructive text-xs"
+                        >
+                          {fieldErrors.password}
+                        </FieldDescription>
+                      ) : (
+                        <FieldDescription
+                          id="password-hint"
+                          className="text-muted-foreground text-xs"
+                        >
+                          Use at least {PASSWORD_MIN_LENGTH} characters.
+                        </FieldDescription>
+                      )}
+                    </Field>
+                  </div>
+
+                  {formError ? (
+                    <p className="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm">
+                      {formError}
+                    </p>
+                  ) : null}
+
+                  <Field className="gap-4">
+                    <Button
+                      type="submit"
+                      size="lg"
+                      disabled={submitting}
+                      className="h-10 rounded-lg hover:bg-primary/80"
+                    >
+                      {submitting ? 'Creating account…' : 'Create account'}
+                    </Button>
+                    <FieldDescription className="text-muted-foreground text-center text-sm font-normal">
+                      Already have an account?{' '}
+                      <a
+                        href="/login"
+                        className="text-card-foreground font-medium"
+                      >
+                        Sign in
+                      </a>
+                    </FieldDescription>
+                  </Field>
+                </FieldGroup>
+              </form>
             )}
-          </div>
-
-          {formError ? (
-            <p className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
-              {formError}
-            </p>
-          ) : null}
-
-          <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? 'Creating account…' : 'Create account'}
-          </Button>
-        </form>
-      )}
-    </main>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
   );
 }
 
@@ -160,38 +230,33 @@ function PostRegistration({
   email: string;
 }) {
   return (
-    <section className="space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-      <div className="space-y-2">
-        <h2 className="text-lg font-medium text-slate-100">
-          Confirm your email
-        </h2>
-        <p className="text-sm text-slate-400">
-          We&apos;ve created your account for{' '}
-          <span className="text-slate-200">{email}</span>. Confirm your email
-          address to activate it.
-        </p>
-      </div>
+    <div className="flex flex-col gap-5 pt-2">
+      <p className="text-muted-foreground text-sm">
+        We&apos;ve created your account for{' '}
+        <span className="text-card-foreground font-medium">{email}</span>.
+        Confirm your email address to activate it.
+      </p>
 
       {success.devMode && success.confirmationUrl ? (
-        <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
-          <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-300">
+        <div className="border-border bg-muted/40 flex flex-col gap-3 rounded-lg border p-4">
+          <span className="bg-secondary text-secondary-foreground inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
             Dev mode
           </span>
-          <p className="text-sm text-amber-100/80">
+          <p className="text-muted-foreground text-sm">
             No email is sent in dev mode. Use this confirmation link directly:
           </p>
           <a
             href={success.confirmationUrl}
-            className="block break-all rounded-md bg-slate-950/60 px-3 py-2 font-mono text-xs text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
+            className="bg-background block break-all rounded-md px-3 py-2 font-mono text-xs underline underline-offset-2"
           >
             {success.confirmationUrl}
           </a>
         </div>
       ) : (
-        <p className="text-sm text-slate-400">
+        <p className="text-muted-foreground text-sm">
           Check your inbox for a confirmation link.
         </p>
       )}
-    </section>
+    </div>
   );
 }

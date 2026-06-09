@@ -19,6 +19,21 @@ Hold for every slice:
 - Tenancy enforced at the data layer, not just the UI (Principle 4); reject other Users' resources requested by direct ID. See ADR-0001.
 - Meaningful commits showing progression (NFR-6) — never one big dump.
 
+## Frontend styling
+
+- shadcn/ui (New York, `slate` base) is the component system. Add components with
+  `npx shadcn@latest add <name>` — config in `frontend/components.json`. The
+  `@shadcn-space` registry is wired up for community blocks.
+- Style with the semantic CSS-variable tokens, never hardcoded palette colors:
+  use `bg-background`/`text-foreground`/`bg-card`/`text-muted-foreground`/
+  `border-border`/`bg-primary`/`text-destructive`, not `bg-slate-950`,
+  `text-emerald-400`, etc. Tokens live in `frontend/app/globals.css`
+  (`:root` + `.dark`) and map through `frontend/tailwind.config.ts`.
+- The app runs dark by default (`<html class="dark">` in `app/layout.tsx`).
+  Keep new pages legible in both themes via the tokens above.
+- Registry blocks often ship as static demos with sample branding and dead
+  buttons — strip those, keep the visual treatment, and wire real logic in.
+
 ## Agent skills
 
 ### Issue tracker
