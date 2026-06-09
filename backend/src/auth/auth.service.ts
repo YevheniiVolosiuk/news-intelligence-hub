@@ -11,7 +11,7 @@ import {
   CONFIRMATION_LINK_NOTIFIER,
   ConfirmationLinkNotifier,
 } from './confirmation-link-notifier';
-import {CLOCK, Clock} from './clock';
+import {CLOCK, Clock} from '../common/utils/clock';
 import {ConfirmationTokensRepository} from './confirmation-tokens.repository';
 import {PasswordHasher} from './password-hasher';
 import {EmailAlreadyRegisteredError, UsersRepository} from './users.repository';

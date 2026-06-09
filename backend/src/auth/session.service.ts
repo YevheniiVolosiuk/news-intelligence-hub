@@ -1,11 +1,6 @@
 import {Injectable, Logger} from '@nestjs/common';
 import * as jose from 'jose';
-
-/** The decoded JWT payload attached to the request by the guard. */
-export interface AuthenticatedUser {
-  userId: string;
-  email: string;
-}
+import {AuthenticatedUser} from '../common/decorators/current-user.decorator';
 
 export interface CookieOptions {
   httpOnly: true;

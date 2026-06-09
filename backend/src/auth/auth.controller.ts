@@ -11,10 +11,13 @@ import {
 } from '@nestjs/common';
 import {Response} from 'express';
 import {AuthService} from './auth.service';
-import {CurrentUser} from './current-user.decorator';
+import {
+  AuthenticatedUser,
+  CurrentUser,
+} from '../common/decorators/current-user.decorator';
 import {LoginService} from './login.service';
-import {Public} from './public.decorator';
-import {AuthenticatedUser, SessionService} from './session.service';
+import {Public} from '../common/decorators/public.decorator';
+import {SessionService} from './session.service';
 import {UsersRepository} from './users.repository';
 import {ConfirmDto} from './dto/confirm.dto';
 import {LoginDto} from './dto/login.dto';

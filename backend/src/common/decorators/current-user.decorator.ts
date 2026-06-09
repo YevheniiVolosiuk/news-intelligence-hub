@@ -1,5 +1,10 @@
 import {createParamDecorator, ExecutionContext} from '@nestjs/common';
-import {AuthenticatedUser} from './session.service';
+
+/** The authenticated principal attached to the request by JwtAuthGuard. */
+export interface AuthenticatedUser {
+  userId: string;
+  email: string;
+}
 
 /** Extract the authenticated user principal from the request. */
 export const CurrentUser = createParamDecorator(
