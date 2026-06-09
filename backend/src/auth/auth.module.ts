@@ -10,15 +10,15 @@ import {JwtAuthGuard} from '../common/guards/jwt-auth.guard';
 import {LoginService} from './login.service';
 import {PasswordHasher} from './password-hasher';
 import {SessionService} from './session.service';
-import {UsersRepository} from './users.repository';
+import {UsersModule} from '../modules/users/users.module';
 
 @Module({
+  imports: [UsersModule],
   controllers: [AuthController],
   providers: [
     AuthService,
     LoginService,
     SessionService,
-    UsersRepository,
     ConfirmationTokensRepository,
     PasswordHasher,
     {

@@ -14,7 +14,10 @@ import {
 import {CLOCK, Clock} from '../common/utils/clock';
 import {ConfirmationTokensRepository} from './confirmation-tokens.repository';
 import {PasswordHasher} from './password-hasher';
-import {EmailAlreadyRegisteredError, UsersRepository} from './users.repository';
+import {
+  EmailAlreadyRegisteredError,
+  UsersRepository,
+} from '../modules/users/users.repository';
 
 export interface RegisterResult {
   userId: string;

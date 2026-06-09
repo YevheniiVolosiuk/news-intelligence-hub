@@ -1,6 +1,6 @@
 import {Injectable, Logger, UnauthorizedException} from '@nestjs/common';
 import {PasswordHasher} from './password-hasher';
-import {UsersRepository} from './users.repository';
+import {UsersRepository} from '../modules/users/users.repository';
 import {SessionService} from './session.service';
 import {SessionCookie} from './session.service';
 
