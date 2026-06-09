@@ -3,7 +3,7 @@ import {Logger, ValidationPipe} from '@nestjs/common';
 import {NestFactory} from '@nestjs/core';
 import cookieParser = require('cookie-parser');
 import {AppModule} from './app.module';
-import {runMigrations} from './infra/migrate';
+import {runMigrations} from './infra/database/migrate';
 
 async function bootstrap(): Promise<void> {
   if (process.env.RUN_MIGRATIONS_ON_STARTUP !== 'false') {

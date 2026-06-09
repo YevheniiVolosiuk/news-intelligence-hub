@@ -4,8 +4,8 @@ import {ExpressAdapter} from '@bull-board/express';
 import {Queue} from 'bullmq';
 import express from 'express';
 import basicAuth from 'express-basic-auth';
-import {redisConnectionOptions} from './infra/redis';
-import {ALL_QUEUES} from './queues';
+import {redisConnectionOptions} from './infra/cache/redis';
+import {ALL_QUEUES} from './infra/queues/queues';
 
 /**
  * Standalone Bull Board (the ready-made queue panel from US-12), protected by

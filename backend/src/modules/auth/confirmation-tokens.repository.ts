@@ -1,6 +1,6 @@
 import {Inject, Injectable} from '@nestjs/common';
 import {Pool} from 'pg';
-import {PG_POOL} from '../../infra/database.module';
+import {PG_POOL} from '../../infra/database/database.module';
 
 export interface TokenRow {
   id: string;

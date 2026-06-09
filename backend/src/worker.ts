@@ -1,7 +1,7 @@
 import {createServer} from 'node:http';
 import {Job, Worker} from 'bullmq';
-import {redisConnectionOptions} from './infra/redis';
-import {QUEUE_FEED_PULL} from './queues';
+import {redisConnectionOptions} from './infra/cache/redis';
+import {QUEUE_FEED_PULL} from './infra/queues/queues';
 
 /** Structured single-line log so worker output is greppable in `docker logs`. */
 function log(
