@@ -54,7 +54,23 @@ per-User categories/axes and violates isolation.
 simplicity of physical row separation: isolation must now be proven correct at every read
 path rather than falling out of the schema.
 
-### ADR-2: The split between deterministic code and the LLM
+### ADR-2: Non-enumerating auth responses
+
+**Context:** Register returned 409 Conflict for duplicate emails while login and
+resendConfirmation were non-enumerating — an inconsistency that leaked account
+existence through the register endpoint alone.
+
+**Decision:** Standardise on non-enumerating responses. Register now returns 201
+Created with a synthetic response for duplicate emails, indistinguishable from a
+genuine registration. Reverses the earlier "explicit duplicate-email" trade-off.
+
+**Trade-offs:** Gained a coherent anti-enumeration stance across all public auth
+endpoints. Lost the helpful "you already have an account" message for forgetful
+users.
+
+See [ADR-0002](docs/adr/0002-non-enumerating-auth-responses.md).
+
+### ADR-3: The split between deterministic code and the LLM
 
 <!-- TODO (required by 9.6, Principle 1). Decision: LLM only for entity extraction,
      summary, importance, category/axis assignment, fuzzy entity matching, semantic
