@@ -22,8 +22,8 @@ import {
 export interface RegisterResult {
   userId: string;
   email: string;
-  /** Present only in dev mode, for the post-registration page to render. */
-  confirmationUrl: string;
+  /** Present when the notifier surfaces the link (dev mode). */
+  confirmationUrl?: string;
 }
 
 export type ConfirmStatus = 'confirmed';
@@ -84,7 +84,7 @@ export class AuthService {
     const baseUrl = process.env.APP_BASE_URL ?? 'http://localhost:3000';
     const confirmationUrl = `${baseUrl}/confirm?token=${rawToken}`;
 
-    await this.notifier.notify({
+    const delivery = await this.notifier.notify({
       userId: user.id,
       email: user.email,
       confirmationUrl,
@@ -92,7 +92,11 @@ export class AuthService {
     });
 
     this.logger.log(`registered userId=${user.id} outcome=created`);
-    return {userId: user.id, email: user.email, confirmationUrl};
+    return {
+      userId: user.id,
+      email: user.email,
+      confirmationUrl: delivery.confirmationUrl,
+    };
   }
 
   async confirmEmail(rawToken: string): Promise<ConfirmResult> {

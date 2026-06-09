@@ -63,11 +63,10 @@ export class AuthController {
   @HttpCode(201)
   async register(@Body() dto: RegisterDto): Promise<RegisterResponse> {
     const result = await this.auth.register(dto.email, dto.password);
-    const devMode = process.env.DEV_MODE_CONFIRMATION !== 'false';
     return {
       userId: result.userId,
-      devMode,
-      confirmationUrl: devMode ? result.confirmationUrl : undefined,
+      devMode: !!result.confirmationUrl,
+      confirmationUrl: result.confirmationUrl,
     };
   }
 

@@ -1,4 +1,5 @@
 import {
+  ConfirmationLinkDelivery,
   ConfirmationLinkNotifier,
   ConfirmationLinkPayload,
 } from '../../src/modules/auth/confirmation-link-notifier';
@@ -11,8 +12,9 @@ import {
 export class CapturingConfirmationLinkNotifier implements ConfirmationLinkNotifier {
   readonly captured: ConfirmationLinkPayload[] = [];
 
-  async notify(payload: ConfirmationLinkPayload): Promise<void> {
+  async notify(payload: ConfirmationLinkPayload): Promise<ConfirmationLinkDelivery> {
     this.captured.push(payload);
+    return {confirmationUrl: payload.confirmationUrl};
   }
 
   lastFor(email: string): ConfirmationLinkPayload | undefined {

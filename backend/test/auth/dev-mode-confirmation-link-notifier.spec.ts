@@ -21,4 +21,21 @@ describe('DevModeConfirmationLinkNotifier', () => {
 
     logSpy.mockRestore();
   });
+
+  it('returns the confirmation URL so the caller can surface it in the response', async () => {
+    jest.spyOn(Logger.prototype, 'log').mockImplementation();
+    const notifier = new DevModeConfirmationLinkNotifier();
+    const url = 'http://localhost:3000/confirm?token=xyz-123';
+
+    const delivery = await notifier.notify({
+      userId: 'user-456',
+      email: 'surface@example.com',
+      confirmationUrl: url,
+      rawToken: 'xyz-123',
+    });
+
+    expect(delivery.confirmationUrl).toBe(url);
+
+    jest.restoreAllMocks();
+  });
 });
