@@ -47,6 +47,14 @@ export class UsersRepository {
     return rows[0] ?? null;
   }
 
+  async getPasswordHash(userId: string): Promise<string> {
+    const {rows} = await this.pool.query<{password_hash: string}>(
+      'SELECT password_hash FROM users WHERE id = $1',
+      [userId],
+    );
+    return rows[0].password_hash;
+  }
+
   async create(email: string, passwordHash: string): Promise<UserRow> {
     try {
       const {rows} = await this.pool.query<UserRow>(
