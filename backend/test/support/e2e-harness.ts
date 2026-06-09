@@ -1,0 +1,63 @@
+import {INestApplication, ValidationPipe} from '@nestjs/common';
+import {Test} from '@nestjs/testing';
+import {Pool} from 'pg';
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from '@testcontainers/postgresql';
+import {AppModule} from '../../src/app.module';
+import {CONFIRMATION_LINK_NOTIFIER} from '../../src/auth/confirmation-link-notifier';
+import {runMigrations} from '../../src/infra/migrate';
+import {CapturingConfirmationLinkNotifier} from './capturing-notifier';
+
+export interface E2EHarness {
+  app: INestApplication;
+  pool: Pool;
+  notifier: CapturingConfirmationLinkNotifier;
+  close: () => Promise<void>;
+}
+
+/**
+ * Boots the real NestJS app against a disposable Postgres (Testcontainers) with
+ * the migrations applied and the notifier seam replaced by a capturing double.
+ * This is the prior art Slices 1.2-1.4 and Slice 2+ extend; tests drive the app
+ * through its HTTP boundary and read confirmation tokens off `notifier`.
+ */
+export async function startE2EHarness(): Promise<E2EHarness> {
+  const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
+    'postgres:17',
+  ).start();
+  const databaseUrl = container.getConnectionUri();
+
+  // Every infra helper reads the connection from env, so point them at the
+  // container before anything builds a pool.
+  process.env.DATABASE_URL = databaseUrl;
+  process.env.APP_BASE_URL =
+    process.env.APP_BASE_URL ?? 'http://localhost:3000';
+  process.env.DEV_MODE_CONFIRMATION = 'true';
+
+  await runMigrations(databaseUrl);
+
+  const notifier = new CapturingConfirmationLinkNotifier();
+  const moduleRef = await Test.createTestingModule({imports: [AppModule]})
+    .overrideProvider(CONFIRMATION_LINK_NOTIFIER)
+    .useValue(notifier)
+    .compile();
+
+  const app = moduleRef.createNestApplication();
+  app.useGlobalPipes(new ValidationPipe({whitelist: true, transform: true}));
+  await app.init();
+
+  const pool = new Pool({connectionString: databaseUrl});
+
+  return {
+    app,
+    pool,
+    notifier,
+    close: async () => {
+      await pool.end().catch(() => undefined);
+      await app.close();
+      await container.stop();
+    },
+  };
+}
