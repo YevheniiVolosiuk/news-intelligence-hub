@@ -10,7 +10,7 @@
     "start": "node dist/main.js",
     "test": "jest --runInBand",
     "test:watch": "jest --watch --runInBand",
-    "migrate": "node-pg-migrate -j sql --migrations-dir migrations up",
+    "migrate": "node-pg-migrate -j sql --migrations-dir src/infra/database/migrations up",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug 0.0.0.0:9229 --watch",
     "worker": "node dist/worker.js",

@@ -24,7 +24,7 @@ export async function runMigrations(
 
   await execFileAsync(
     cli,
-    ['-j', 'sql', '--migrations-dir', 'migrations', 'up'],
+    ['-j', 'sql', '--migrations-dir', 'src/infra/database/migrations', 'up'],
     {
       cwd: backendRoot,
       env: {
