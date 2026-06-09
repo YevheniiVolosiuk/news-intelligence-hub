@@ -7,9 +7,9 @@ import {
   StartedPostgreSqlContainer,
 } from '@testcontainers/postgresql';
 import {AppModule} from '../../src/app.module';
-import {CONFIRMATION_LINK_NOTIFIER} from '../../src/auth/confirmation-link-notifier';
-import {CLOCK} from '../../src/auth/clock';
-import {runMigrations} from '../../src/infra/migrate';
+import {CONFIRMATION_LINK_NOTIFIER} from '../../src/modules/auth/confirmation-link-notifier';
+import {CLOCK} from '../../src/common/utils/clock';
+import {runMigrations} from '../../src/infra/database/migrate';
 import {CapturingConfirmationLinkNotifier} from './capturing-notifier';
 
 export interface E2EHarness {

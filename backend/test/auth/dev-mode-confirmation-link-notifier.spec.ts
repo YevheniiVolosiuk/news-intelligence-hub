@@ -1,5 +1,5 @@
 import {Logger} from '@nestjs/common';
-import {DevModeConfirmationLinkNotifier} from '../../src/auth/dev-mode-confirmation-link-notifier';
+import {DevModeConfirmationLinkNotifier} from '../../src/modules/auth/dev-mode-confirmation-link-notifier';
 
 describe('DevModeConfirmationLinkNotifier', () => {
   it('writes the confirmation link to the structured log marked DEV MODE', async () => {

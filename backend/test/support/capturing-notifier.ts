@@ -1,7 +1,7 @@
 import {
   ConfirmationLinkNotifier,
   ConfirmationLinkPayload,
-} from '../../src/auth/confirmation-link-notifier';
+} from '../../src/modules/auth/confirmation-link-notifier';
 
 /**
  * Test double for the notifier seam: records every confirmation link instead of
