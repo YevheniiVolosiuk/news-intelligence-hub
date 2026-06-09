@@ -16,7 +16,10 @@ const execFileAsync = promisify(execFile);
 export async function runMigrations(
   databaseUrlOverride?: string,
 ): Promise<void> {
-  const backendRoot = path.join(__dirname, '..', '..');
+  // Anchor on the working directory, not __dirname: the latter is src/infra
+  // under ts-jest but dist/infra in the built image, which would point the CLI
+  // lookup at the wrong tree. cwd is the backend root in both contexts.
+  const backendRoot = process.cwd();
   const cli = path.join(backendRoot, 'node_modules', '.bin', 'node-pg-migrate');
 
   await execFileAsync(
