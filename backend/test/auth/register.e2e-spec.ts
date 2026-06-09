@@ -81,7 +81,7 @@ describe('POST /auth/register', () => {
     expect(rows[0].token_hash).toEqual(expectedHash);
   });
 
-  it('rejects a second registration of the same email with a clear conflict', async () => {
+  it('returns a non-enumerating 201 for a duplicate email without creating a second account or sending a notification', async () => {
     const email = 'dupe@example.com';
     const body = {email, password: 'correct horse battery'};
 
@@ -90,21 +90,30 @@ describe('POST /auth/register', () => {
       .send(body)
       .expect(201);
 
+    harness.notifier.clear();
+
     const res = await request(harness.app.getHttpServer())
       .post('/auth/register')
       .send(body)
-      .expect(409);
+      .expect(201);
 
-    expect(String(res.body.message)).toMatch(/already exists/i);
+    // Response looks like a normal registration (no conflict signal).
+    expect(res.body.userId).toBeDefined();
+    expect(res.body.devMode).toBe(false);
+    expect(res.body.confirmationUrl).toBeUndefined();
 
+    // No duplicate account created.
     const {rows} = await harness.pool.query(
       'SELECT count(*)::int AS n FROM users WHERE email = $1',
       [email],
     );
     expect(rows[0].n).toBe(1);
+
+    // No confirmation notification sent for the duplicate attempt.
+    expect(harness.notifier.captured).toHaveLength(0);
   });
 
-  it('normalises email to lowercase and rejects a case-variant duplicate', async () => {
+  it('normalises email to lowercase and returns a non-enumerating 201 for a case-variant duplicate', async () => {
     await request(harness.app.getHttpServer())
       .post('/auth/register')
       .send({email: 'Case.User@Example.com', password: 'correct horse battery'})
@@ -113,7 +122,7 @@ describe('POST /auth/register', () => {
     await request(harness.app.getHttpServer())
       .post('/auth/register')
       .send({email: 'case.user@example.COM', password: 'correct horse battery'})
-      .expect(409);
+      .expect(201);
 
     const {rows} = await harness.pool.query(
       "SELECT email::text AS email FROM users WHERE email = 'case.user@example.com'",

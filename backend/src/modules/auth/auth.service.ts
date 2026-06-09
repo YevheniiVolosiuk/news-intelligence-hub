@@ -1,6 +1,5 @@
-import {randomBytes, createHash} from 'crypto';
+import {randomBytes, randomUUID, createHash} from 'crypto';
 import {
-  ConflictException,
   GoneException,
   Inject,
   Injectable,
@@ -66,12 +65,13 @@ export class AuthService {
       user = await this.users.create(normalisedEmail, passwordHash);
     } catch (err) {
       if (err instanceof EmailAlreadyRegisteredError) {
-        // Per the approved UX trade-off this is intentionally explicit rather
-        // than non-enumerating.
-        this.logger.log('register rejected outcome=duplicate-email');
-        throw new ConflictException(
-          'an account already exists — log in instead',
-        );
+        // Non-enumerating: return a synthetic success indistinguishable from
+        // a real registration. No notification is sent, no duplicate created.
+        this.logger.log('register outcome=duplicate-email (non-enumerating)');
+        return {
+          userId: randomUUID(),
+          email: normalisedEmail,
+        };
       }
       throw err;
     }
