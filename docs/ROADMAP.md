@@ -25,12 +25,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(Must)** gate · **(S
 - [x] Domain glossary + tenancy ADR (`/grill-with-docs`)
 - [x] Git repo + skeleton (`backend/`, `frontend/`, `.docker/`, `Makefile`)
 - [x] Engineering skills wired (`/setup-matt-pocock-skills`: GitHub tracker, labels, domain docs)
-- [ ] `docker compose up` boots the empty stack (Postgres, Redis, backend, frontend, worker, Bull Board) — **(Must)** de-risks the §9.3 gate early
+- [x] `docker compose up` boots the empty stack (Postgres, Redis, backend, frontend, worker, Bull Board) — **(Must)** de-risks the §9.3 gate early
 
 ## Phase 1 — Must slices (the acceptance gate, §9.4)
 
-- [ ] **Slice 1 — Auth + tenancy** **(Must)** · §9.4 steps 3-6
+- [~] **Slice 1 — Auth + tenancy** **(Must)** · §9.4 steps 3-6
       Register, email confirm (dev mode: link in log/UI), login, logout, session survives reload.
+      _1.1 register + dev-mode confirmation link done; 1.2 confirm/resend, 1.3 login/logout/session, 1.4 tenant scoping remain._
       Passwords hashed (argon2/bcrypt). Tenancy enforced at the data-access layer per ADR-0001.
 - [ ] **Slice 2 — Feed CRUD + status** **(Must)** · §9.4 step 7
       Add Feed by URL, validate RSS/Atom + reachability, pause/resume/delete, show status.
