@@ -1,5 +1,6 @@
 import {INestApplication, ValidationPipe} from '@nestjs/common';
 import {Test} from '@nestjs/testing';
+import cookieParser = require('cookie-parser');
 import {Pool} from 'pg';
 import {
   PostgreSqlContainer,
@@ -7,7 +8,7 @@ import {
 } from '@testcontainers/postgresql';
 import {AppModule} from '../../src/app.module';
 import {CONFIRMATION_LINK_NOTIFIER} from '../../src/auth/confirmation-link-notifier';
-import {CLOCK, Clock} from '../../src/auth/clock';
+import {CLOCK} from '../../src/auth/clock';
 import {runMigrations} from '../../src/infra/migrate';
 import {CapturingConfirmationLinkNotifier} from './capturing-notifier';
 
@@ -51,6 +52,7 @@ export async function startE2EHarness(): Promise<E2EHarness> {
     .compile();
 
   const app = moduleRef.createNestApplication();
+  app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe({whitelist: true, transform: true}));
   await app.init();
 

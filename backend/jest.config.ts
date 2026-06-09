@@ -6,6 +6,12 @@ const config: Config = {
   rootDir: '.',
   testMatch: ['**/*.spec.ts', '**/*.e2e-spec.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
+  // jose ships ESM; transform it so ts-jest can consume it.
+  transformIgnorePatterns: ['node_modules/(?!(jose)/)'],
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.js$': 'ts-jest',
+  },
   // Booting a real app + a disposable Postgres container is slow; give it room.
   testTimeout: 120000,
 };

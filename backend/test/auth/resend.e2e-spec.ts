@@ -1,4 +1,3 @@
-import {createHash} from 'crypto';
 import request from 'supertest';
 import {startE2EHarness, E2EHarness} from '../support/e2e-harness';
 
