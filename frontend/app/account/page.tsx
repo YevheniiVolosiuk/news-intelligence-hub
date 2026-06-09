@@ -48,6 +48,13 @@ export default function AccountPage() {
                 </div>
                 <Separator />
                 <Button
+                  asChild
+                  size="lg"
+                  className="h-10 rounded-lg hover:bg-primary/80"
+                >
+                  <a href="/feeds">Manage feeds</a>
+                </Button>
+                <Button
                   onClick={() => void logout()}
                   variant="outline"
                   size="lg"
