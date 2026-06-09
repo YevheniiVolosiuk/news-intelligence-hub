@@ -1,0 +1,30 @@
+# Version control / CI
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Docker (prevent recursive copy)
+Dockerfile*
+.dockerignore
+
+# Dependencies (reinstalled in the image)
+node_modules
+
+# Build artifacts
+.next
+out
+
+# Environment files (secrets) - never bake into the image
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
