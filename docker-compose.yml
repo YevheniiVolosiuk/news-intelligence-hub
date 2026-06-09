@@ -1,0 +1,142 @@
+# News Intelligence Hub - base stack (shared by dev and prod).
+#   Dev:  docker compose up            (auto-merges docker-compose.override.yml)
+#   Prod: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# No host ports are published here - that lives in the dev override only. Infra
+# services (db, redis) never get host ports; they talk over the Docker network.
+
+name: ${COMPOSE_PROJECT_NAME:-nih}
+
+# The API, worker, and Bull Board are the same backend image with different commands.
+x-backend-build: &backend-build
+  build:
+    context: ./backend
+    target: production
+
+# Connection strings compose assembles from the parts in .env.
+x-app-env: &app-env
+  DATABASE_URL: postgres://${DB_USER:-nih}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/${DB_NAME:-nih}
+  REDIS_URL: redis://redis:6379/0
+
+services:
+  db:
+    image: postgres:${POSTGRES_VERSION:-17}-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-nih}
+      POSTGRES_USER: ${DB_USER:-nih}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - backend
+
+  redis:
+    image: redis:${REDIS_VERSION:-7}-alpine
+    # noeviction is required by BullMQ - the queue and cache must never lose keys
+    # to eviction. Bound memory via maxmemory and manage cache size with TTLs.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - backend
+
+  backend:
+    <<: *backend-build
+    env_file: .env
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - frontend
+      - backend
+
+  worker:
+    <<: *backend-build
+    command: ["node", "dist/worker.js"]
+    env_file: .env
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - frontend
+      - backend
+
+  bull-board:
+    <<: *backend-build
+    command: ["node", "dist/bull-board.js"]
+    env_file: .env
+    environment:
+      <<: *app-env
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    environment:
+      BACKEND_INTERNAL_URL: http://backend:3000
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - frontend
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge

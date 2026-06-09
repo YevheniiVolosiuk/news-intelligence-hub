@@ -1,0 +1,124 @@
+# Production hardening overlay.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Pre-built images, read-only root filesystems, dropped capabilities, non-root
+# users, resource limits, and log rotation. The backend network is `internal`
+# (no internet) so Postgres/Redis cannot egress; app services keep egress via the
+# frontend network for LLM/RSS calls. Infra services expose NO host ports.
+
+x-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-security: &security
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  backend:
+    image: ${DOCKER_REGISTRY:-ghcr.io/owner}/nih-backend:${VERSION:-latest}
+    build:
+      context: ./backend
+      target: production
+    <<: *security
+    user: "1001:1001"
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M, pids: 200}
+        reservations: {cpus: "0.25", memory: 128M}
+    logging: *logging
+    restart: unless-stopped
+
+  worker:
+    image: ${DOCKER_REGISTRY:-ghcr.io/owner}/nih-backend:${VERSION:-latest}
+    build:
+      context: ./backend
+      target: production
+    command: ["node", "dist/worker.js"]
+    <<: *security
+    user: "1001:1001"
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M, pids: 200}
+        reservations: {cpus: "0.25", memory: 128M}
+    logging: *logging
+    restart: unless-stopped
+
+  bull-board:
+    image: ${DOCKER_REGISTRY:-ghcr.io/owner}/nih-backend:${VERSION:-latest}
+    build:
+      context: ./backend
+      target: production
+    command: ["node", "dist/bull-board.js"]
+    <<: *security
+    user: "1001:1001"
+    tmpfs:
+      - /tmp:noexec,nosuid,size=32m
+    ports:
+      - "127.0.0.1:${BULL_BOARD_HOST_PORT:-3002}:3001"  # admin-only, localhost
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 256M, pids: 100}
+        reservations: {cpus: "0.1", memory: 64M}
+    logging: *logging
+    restart: unless-stopped
+
+  frontend:
+    image: ${DOCKER_REGISTRY:-ghcr.io/owner}/nih-frontend:${VERSION:-latest}
+    build:
+      context: ./frontend
+      target: production
+    <<: *security
+    user: "1001:1001"
+    tmpfs:
+      - /tmp:noexec,nosuid,size=32m
+      - /app/.next/cache:noexec,nosuid,size=64m
+    ports:
+      - "${HTTP_PORT:-80}:3000"   # app is the only thing exposed publicly
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M, pids: 100}
+        reservations: {cpus: "0.25", memory: 128M}
+    logging: *logging
+    restart: unless-stopped
+
+  db:
+    <<: *security
+    read_only: false                  # Postgres needs a writable data dir
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+      - FOWNER
+      - SETGID
+      - SETUID
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+      - /run/postgresql:noexec,nosuid,size=16m
+    deploy:
+      resources:
+        limits: {cpus: "2.0", memory: 1G}
+        reservations: {cpus: "0.5", memory: 256M}
+    logging: *logging
+    restart: unless-stopped
+
+  redis:
+    <<: *security
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 384M}
+        reservations: {cpus: "0.1", memory: 64M}
+    logging: *logging
+    restart: unless-stopped
+
+networks:
+  backend:
+    internal: true                    # DB/Redis get no internet access

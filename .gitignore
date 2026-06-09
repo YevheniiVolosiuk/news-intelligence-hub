@@ -3,3 +3,21 @@
 .vscode/
 
 SPECIFICATION.md
+
+# Secrets - env only, never committed
+.env
+.env.*
+!.env.example
+
+# Node dependencies and build output
+node_modules/
+backend/dist/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+*.tsbuildinfo
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db
