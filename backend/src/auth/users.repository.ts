@@ -29,6 +29,24 @@ export class UsersRepository {
    * duplicate surfaces as a unique-violation here rather than via a racy
    * pre-check.
    */
+  async markConfirmed(userId: string): Promise<UserRow> {
+    const {rows} = await this.pool.query<UserRow>(
+      `UPDATE users SET confirmed_at = now(), updated_at = now()
+        WHERE id = $1
+       RETURNING id, email, confirmed_at`,
+      [userId],
+    );
+    return rows[0];
+  }
+
+  async findByEmail(email: string): Promise<UserRow | null> {
+    const {rows} = await this.pool.query<UserRow>(
+      'SELECT id, email, confirmed_at FROM users WHERE email = $1',
+      [email],
+    );
+    return rows[0] ?? null;
+  }
+
   async create(email: string, passwordHash: string): Promise<UserRow> {
     try {
       const {rows} = await this.pool.query<UserRow>(

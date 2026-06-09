@@ -7,6 +7,7 @@ import {
 } from '@testcontainers/postgresql';
 import {AppModule} from '../../src/app.module';
 import {CONFIRMATION_LINK_NOTIFIER} from '../../src/auth/confirmation-link-notifier';
+import {CLOCK, Clock} from '../../src/auth/clock';
 import {runMigrations} from '../../src/infra/migrate';
 import {CapturingConfirmationLinkNotifier} from './capturing-notifier';
 
@@ -14,6 +15,8 @@ export interface E2EHarness {
   app: INestApplication;
   pool: Pool;
   notifier: CapturingConfirmationLinkNotifier;
+  /** Mutate this to control what the clock returns during the test. */
+  clock: {now: () => Date};
   close: () => Promise<void>;
 }
 
@@ -39,9 +42,12 @@ export async function startE2EHarness(): Promise<E2EHarness> {
   await runMigrations(databaseUrl);
 
   const notifier = new CapturingConfirmationLinkNotifier();
+  const clockState = {now: () => new Date()};
   const moduleRef = await Test.createTestingModule({imports: [AppModule]})
     .overrideProvider(CONFIRMATION_LINK_NOTIFIER)
     .useValue(notifier)
+    .overrideProvider(CLOCK)
+    .useFactory({factory: () => () => clockState.now()})
     .compile();
 
   const app = moduleRef.createNestApplication();
@@ -54,6 +60,7 @@ export async function startE2EHarness(): Promise<E2EHarness> {
     app,
     pool,
     notifier,
+    clock: clockState,
     close: async () => {
       await pool.end().catch(() => undefined);
       await app.close();
