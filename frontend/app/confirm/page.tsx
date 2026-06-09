@@ -181,7 +181,7 @@ function ConfirmedState({email}: {email?: string}) {
   return (
     <div className="flex flex-col gap-5 pt-2">
       <div className="border-border bg-muted/40 flex flex-col gap-3 rounded-lg border p-4">
-        <span className="bg-emerald-600/20 text-emerald-400 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
+        <span className="bg-success/20 text-success inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
           Confirmed
         </span>
         {email && (
@@ -208,7 +208,7 @@ function AlreadyUsedState() {
   return (
     <div className="flex flex-col gap-5 pt-2">
       <div className="border-border bg-muted/40 flex flex-col gap-3 rounded-lg border p-4">
-        <span className="bg-amber-600/20 text-amber-400 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
+        <span className="bg-warning/20 text-warning inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
           Already used
         </span>
         <p className="text-muted-foreground text-sm">
@@ -277,7 +277,7 @@ function ExpiredState({
           </Field>
 
           {resent && (
-            <p className="text-emerald-400 text-sm">
+            <p className="text-success text-sm">
               If that email is registered, a fresh confirmation link has been
               sent.
             </p>
@@ -345,7 +345,7 @@ function InvalidState({
           </Field>
 
           {resent && (
-            <p className="text-emerald-400 text-sm">
+            <p className="text-success text-sm">
               If that email is registered, a fresh confirmation link has been
               sent.
             </p>

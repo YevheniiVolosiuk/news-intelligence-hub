@@ -27,7 +27,7 @@ async function getBackendHealth(): Promise<BackendHealth> {
 function Dot({ok}: {ok: boolean}) {
   return (
     <span
-      className={`inline-block h-2.5 w-2.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-rose-400'}`}
+      className={`inline-block h-2.5 w-2.5 rounded-full ${ok ? 'bg-success' : 'bg-destructive'}`}
       aria-hidden
     />
   );
@@ -47,21 +47,21 @@ export default async function Page() {
         <h1 className="text-2xl font-semibold tracking-tight">
           News Intelligence Hub
         </h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted-foreground">
           Skeleton stack. This page confirms the frontend can reach the backend
           and its dependencies over the Docker network.
         </p>
       </header>
 
-      <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-        <ul className="divide-y divide-slate-800">
+      <section className="rounded-xl border border-border bg-card p-5">
+        <ul className="divide-y divide-border">
           {rows.map(row => (
             <li
               key={row.label}
               className="flex items-center justify-between py-3"
             >
-              <span className="text-sm text-slate-200">{row.label}</span>
-              <span className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="text-sm text-foreground">{row.label}</span>
+              <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Dot ok={row.ok} />
                 {row.ok ? 'healthy' : 'unreachable'}
               </span>
@@ -69,7 +69,9 @@ export default async function Page() {
           ))}
         </ul>
         {health.error ? (
-          <p className="mt-3 text-xs text-rose-400">backend: {health.error}</p>
+          <p className="mt-3 text-xs text-destructive">
+            backend: {health.error}
+          </p>
         ) : null}
       </section>
     </main>
