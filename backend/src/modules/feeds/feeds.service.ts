@@ -17,6 +17,10 @@ import {
   FEED_PULL_PRODUCER,
   FeedPullProducer,
 } from '../../infra/queues/feed-pull-producer';
+import {
+  FEED_PULL_SCHEDULER,
+  FeedPullScheduler,
+} from '../../infra/queues/feed-pull-scheduler';
 
 export interface Feed {
   id: string;
@@ -46,6 +50,7 @@ export class FeedsService {
     private readonly feeds: FeedsRepository,
     @Inject(FEED_VALIDATOR) private readonly validator: FeedValidator,
     @Inject(FEED_PULL_PRODUCER) private readonly pullProducer: FeedPullProducer,
+    @Inject(FEED_PULL_SCHEDULER) private readonly scheduler: FeedPullScheduler,
   ) {}
 
   async addFeed(userId: string, url: string): Promise<Feed> {
@@ -64,6 +69,7 @@ export class FeedsService {
         normaliseUrl(url),
         result.title ?? null,
       );
+      await this.scheduler.schedule(row.id);
       this.logger.log(
         `add-feed outcome=created feedId=${row.id} userId=${userId}`,
       );
@@ -101,7 +107,10 @@ export class FeedsService {
     if (!deleted) {
       throw new NotFoundException();
     }
-    this.logger.log(`delete-feed outcome=deleted feedId=${feedId} userId=${userId}`);
+    await this.scheduler.unschedule(feedId);
+    this.logger.log(
+      `delete-feed outcome=deleted feedId=${feedId} userId=${userId}`,
+    );
   }
 
   /**
@@ -129,6 +138,13 @@ export class FeedsService {
     const row = await this.feeds.setStatus(userId, feedId, status);
     if (!row) {
       throw new NotFoundException();
+    }
+    // Keep the schedule in lockstep with status: an active Feed has a
+    // repeatable, a paused one does not.
+    if (status === 'active') {
+      await this.scheduler.schedule(feedId);
+    } else {
+      await this.scheduler.unschedule(feedId);
     }
     this.logger.log(
       `set-status outcome=updated feedId=${feedId} status=${status} userId=${userId}`,

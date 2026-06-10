@@ -86,7 +86,7 @@ export class FeedsRepository {
    */
   async deleteForUser(userId: string, feedId: string): Promise<boolean> {
     const {rowCount} = await this.pool.query(
-      `DELETE FROM feeds WHERE id = $2 AND user_id = $1`,
+      'DELETE FROM feeds WHERE id = $2 AND user_id = $1',
       [userId, feedId],
     );
     return (rowCount ?? 0) > 0;
@@ -132,6 +132,18 @@ export class FeedsRepository {
       [feedId],
     );
     return rows[0] ?? null;
+  }
+
+  /**
+   * Ids of every active Feed across all tenants (system-level, no scoping).
+   * Used by startup reconciliation to register a repeatable pull per active
+   * Feed; paused/errored Feeds are excluded because they must not be scheduled.
+   */
+  async listActiveIds(): Promise<string[]> {
+    const {rows} = await this.pool.query<{id: string}>(
+      "SELECT id FROM feeds WHERE status = 'active'",
+    );
+    return rows.map(r => r.id);
   }
 
   /** Mark a feed as successfully pulled (active + timestamp). */
