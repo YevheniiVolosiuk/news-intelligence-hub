@@ -55,6 +55,91 @@ describe('Dashboard FeedsPage', () => {
     expect(screen.getByText(/active/i)).toBeInTheDocument();
   });
 
+  it('pauses an active feed and flips the control to resume', async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(200, [
+        {
+          id: 'f1',
+          url: 'https://news.example.com/rss',
+          title: null,
+          status: 'active',
+          createdAt: '2026-06-10T00:00:00.000Z',
+          updatedAt: '2026-06-10T00:00:00.000Z',
+        },
+      ]),
+    );
+
+    render(<FeedsPage />);
+    const user = userEvent.setup();
+
+    const pauseBtn = await screen.findByRole('button', {name: /pause/i});
+
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(200, {
+        id: 'f1',
+        url: 'https://news.example.com/rss',
+        title: null,
+        status: 'paused',
+        createdAt: '2026-06-10T00:00:00.000Z',
+        updatedAt: '2026-06-10T00:00:00.000Z',
+      }),
+    );
+
+    await user.click(pauseBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', {name: /resume/i}),
+      ).toBeInTheDocument();
+    });
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/feeds/f1/pause'),
+      expect.objectContaining({method: 'POST'}),
+    );
+    expect(screen.queryByRole('button', {name: /pause/i})).toBeNull();
+  });
+
+  it('resumes a paused feed via the resume endpoint and flips back to pause', async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(200, [
+        {
+          id: 'f2',
+          url: 'https://paused.example.com/rss',
+          title: null,
+          status: 'paused',
+          createdAt: '2026-06-10T00:00:00.000Z',
+          updatedAt: '2026-06-10T00:00:00.000Z',
+        },
+      ]),
+    );
+
+    render(<FeedsPage />);
+    const user = userEvent.setup();
+
+    const resumeBtn = await screen.findByRole('button', {name: /resume/i});
+
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(200, {
+        id: 'f2',
+        url: 'https://paused.example.com/rss',
+        title: null,
+        status: 'active',
+        createdAt: '2026-06-10T00:00:00.000Z',
+        updatedAt: '2026-06-10T00:00:00.000Z',
+      }),
+    );
+
+    await user.click(resumeBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', {name: /pause/i})).toBeInTheDocument();
+    });
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/feeds/f2/resume'),
+      expect.objectContaining({method: 'POST'}),
+    );
+  });
+
   it('shows a loading state during the probe, then the rejection reason inline', async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse(200, []));
 

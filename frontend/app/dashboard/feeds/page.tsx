@@ -1,7 +1,7 @@
 'use client';
 
 import {useCallback, useEffect, useState, type FormEvent} from 'react';
-import {Plus, Rss} from 'lucide-react';
+import {Pause, Play, Plus, Rss} from 'lucide-react';
 import {PageBody} from '@/components/dashboard/page-body';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent} from '@/components/ui/card';
@@ -75,6 +75,22 @@ export default function FeedsPage() {
       setSubmitting(false);
     }
   }
+
+  const togglePause = useCallback(async (feed: Feed) => {
+    const action = feed.status === 'paused' ? 'resume' : 'pause';
+    try {
+      const res = await fetch(`${API_BASE_URL}/feeds/${feed.id}/${action}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const updated = (await res.json()) as Feed;
+        setFeeds(prev => prev.map(f => (f.id === updated.id ? updated : f)));
+      }
+    } catch {
+      // Best-effort; the row keeps its current status on failure.
+    }
+  }, []);
 
   return (
     <PageBody
@@ -181,7 +197,30 @@ export default function FeedsPage() {
                           {feed.url}
                         </span>
                       </div>
-                      <FeedStatusBadge status={feed.status} />
+                      <div className="flex shrink-0 items-center gap-2">
+                        <FeedStatusBadge status={feed.status} />
+                        {feed.status !== 'error' ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void togglePause(feed)}
+                            className="h-8 gap-1.5 rounded-lg px-2.5"
+                          >
+                            {feed.status === 'paused' ? (
+                              <>
+                                <Play size={14} />
+                                Resume
+                              </>
+                            ) : (
+                              <>
+                                <Pause size={14} />
+                                Pause
+                              </>
+                            )}
+                          </Button>
+                        ) : null}
+                      </div>
                     </li>
                   ))
                 )}
