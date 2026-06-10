@@ -263,6 +263,80 @@ describe('Feeds (tenant-scoped)', () => {
       .expect(401);
   });
 
+  it('deletes the caller’s Feed; it no longer appears in the list', async () => {
+    const {cookie} = await registerAndLogin(harness, 'delete-own@example.com');
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: 'https://delete-me.example.com/feed'})
+      .expect(201);
+    const id = added.body.id;
+
+    await request(harness.app.getHttpServer())
+      .delete(`/feeds/${id}`)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    const list = await request(harness.app.getHttpServer())
+      .get('/feeds')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(list.body.map((f: {id: string}) => f.id)).not.toContain(id);
+  });
+
+  it('returns 404 on a second delete of the same Feed', async () => {
+    const {cookie} = await registerAndLogin(harness, 'double-delete@example.com');
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: 'https://double-delete.example.com/feed'})
+      .expect(201);
+    const id = added.body.id;
+
+    await request(harness.app.getHttpServer())
+      .delete(`/feeds/${id}`)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    // Already gone — same shape as a nonexistent id.
+    await request(harness.app.getHttpServer())
+      .delete(`/feeds/${id}`)
+      .set('Cookie', cookie)
+      .expect(404);
+  });
+
+  it('returns 404 when deleting another User’s Feed and leaves it intact', async () => {
+    const userA = await registerAndLogin(harness, 'del-cross-a@example.com');
+    const userB = await registerAndLogin(harness, 'del-cross-b@example.com');
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', userB.cookie)
+      .send({url: 'https://b-keeps.example.com/feed'})
+      .expect(201);
+    const id = added.body.id;
+
+    await request(harness.app.getHttpServer())
+      .delete(`/feeds/${id}`)
+      .set('Cookie', userA.cookie)
+      .expect(404);
+
+    // B's Feed survives and is still reachable to B.
+    const bList = await request(harness.app.getHttpServer())
+      .get('/feeds')
+      .set('Cookie', userB.cookie)
+      .expect(200);
+    expect(bList.body.map((f: {id: string}) => f.id)).toContain(id);
+  });
+
+  it('rejects unauthenticated delete with 401', async () => {
+    await request(harness.app.getHttpServer())
+      .delete('/feeds/00000000-0000-0000-0000-000000000000')
+      .expect(401);
+  });
+
   it('allows two different Users to add the same URL but blocks a User’s own duplicate', async () => {
     const url = 'https://shared-outlet.example.com/feed';
     const userA = await registerAndLogin(harness, 'dup-a@example.com');

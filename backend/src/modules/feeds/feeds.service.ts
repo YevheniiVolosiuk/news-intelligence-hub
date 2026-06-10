@@ -104,6 +104,18 @@ export class FeedsService {
     return this.setStatus(userId, feedId, 'active');
   }
 
+  /**
+   * Removes the caller's Feed. 404 if it isn't the caller's or is already gone
+   * (non-enumerating). Deletion detaches future Articles, never cascades them.
+   */
+  async deleteFeed(userId: string, feedId: string): Promise<void> {
+    const deleted = await this.feeds.deleteForUser(userId, feedId);
+    if (!deleted) {
+      throw new NotFoundException();
+    }
+    this.logger.log(`delete-feed outcome=deleted feedId=${feedId} userId=${userId}`);
+  }
+
   private async setStatus(
     userId: string,
     feedId: string,

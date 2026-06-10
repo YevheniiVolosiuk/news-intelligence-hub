@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -53,5 +54,14 @@ export class FeedsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Feed> {
     return this.feeds.resumeFeed(user.userId, id);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    return this.feeds.deleteFeed(user.userId, id);
   }
 }

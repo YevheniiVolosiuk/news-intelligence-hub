@@ -75,6 +75,21 @@ export class FeedsRepository {
     return rows[0] ?? null;
   }
 
+  /**
+   * Deletes the caller's own Feed and reports whether a row was removed.
+   * Scoped by `user_id`, so a Feed that isn't the caller's matches no row and
+   * yields `false` — indistinguishable from a nonexistent id (non-enumerating).
+   * Per ADR-0001, the future Article -> Feed link is `ON DELETE SET NULL`, so
+   * this deletion detaches Articles rather than cascading them away.
+   */
+  async deleteForUser(userId: string, feedId: string): Promise<boolean> {
+    const {rowCount} = await this.pool.query(
+      `DELETE FROM feeds WHERE id = $2 AND user_id = $1`,
+      [userId, feedId],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
   /** Lists the caller's own Feeds, newest first. Scoped strictly to `user_id`. */
   async listForUser(userId: string): Promise<FeedRow[]> {
     const {rows} = await this.pool.query<FeedRow>(
