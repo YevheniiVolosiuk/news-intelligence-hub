@@ -52,6 +52,51 @@ Rules when adding code:
 - Watch for circular imports between modules; if two domains need each other,
   the shared piece belongs in `common`.
 
+## Database migrations
+
+Single-concern TypeScript migrations using `node-pg-migrate` v8. Each migration
+is a `.ts` file exporting **only** `up(pgm: MigrationBuilder)` — no `down()`.
+The DBs are disposable (Testcontainers / early-stage), so rollback is
+unnecessary. Each file represents one structural idea using the fluent
+`MigrationBuilder` DSL (`pgm.createTable`, `pgm.addColumns`,
+`pgm.addConstraint`, `pgm.createIndex`, `pgm.createExtension`, `pgm.func`, and
+`pgm.sql` as an escape hatch for raw SQL).
+
+**Design principle:** tables define structure, constraints define policy, indexes
+define performance, state columns define workflow. Each should be in its own
+migration so it can evolve independently.
+
+**Location / naming:**
+`backend/src/infra/database/migrations/1000000000XXX_<domain>_<action>.ts`
+
+The 13-digit zero-padded prefix is a synthetic timestamp that sorts correctly
+and avoids node-pg-migrate's log noise for non-timestamp prefixes. Gaps between
+groups (001–002, 010–011, 020, 030–031, 040, 050) leave room for future
+insertions.
+
+To add a new migration: create the file manually following the convention. Pick
+the next prefix in the appropriate group gap.
+
+**Command:** `npm run migrate` — apply all pending migrations.
+
+**Loader:** the CLI is invoked under `tsx` (devDependency), which transparently
+compiles `.ts` migration files regardless of the repo's `module: commonjs`
+tsconfig. The CLI is shelled out (`migrate.ts`) and the same path serves API
+boot, `npm run migrate`, and the Testcontainers harness.
+
+**Cascade policy (ADR-0001):** owned/private rows cascade with their owner;
+shared rows detach. Examples: `feeds.user_id` → `ON DELETE CASCADE` (owned
+subscription), `articles.feed_id` → `ON DELETE SET NULL` (shared content).
+
+**Comments:** each migration carries the relevant ADR / cascade rationale inline.
+
+**Data-layer-only slices** are proven at the SQL boundary — see
+`test/support/migration-harness.ts` and
+`test/infra/articles-sources-schema.spec.ts`.
+
+**Production note:** migrations execute in dev/test; running them in the prod
+image needs `tsx` in the runtime (or compiled migrations) — tracked separately.
+
 ## Frontend styling
 
 - shadcn/ui (New York, `slate` base) is the component system. Add components with

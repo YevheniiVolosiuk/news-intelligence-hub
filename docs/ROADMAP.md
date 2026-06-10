@@ -32,10 +32,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(Must)** gate · **(S
 - [x] **Slice 1 — Auth + tenancy** **(Must)** · §9.4 steps 3-6
       Register, email confirm (dev mode: link in log/UI), login, logout, session survives reload.
       Passwords hashed (argon2/bcrypt). Tenancy enforced at the data-access layer per ADR-0001.
-- [ ] **Slice 2 — Feed CRUD + status** **(Must)** · §9.4 step 7
+- [x] **Slice 2 — Feed CRUD + status** **(Must)** · §9.4 step 7
       Add Feed by URL, validate RSS/Atom + reachability, pause/resume/delete, show status.
       Delete detaches Articles, does not remove them.
-- [ ] **Slice 3 — Ingestion + Pre-Filter** **(Must)** · §9.4 step 8
+- [~] **Slice 3 — Ingestion + Pre-Filter** **(Must)** · §9.4 step 8
       Feed-pull worker (scheduled + manual), RSS/Atom parse, URL normalisation, content hash,
       deterministic Pre-Filter (`filtered`/`pending`). Demo-data seed for review.
 - [ ] **Slice 4 — LLM abstraction + Labelling** **(Must)** · §9.4 step 9 · _grill first_
