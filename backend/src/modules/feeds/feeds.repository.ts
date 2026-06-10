@@ -55,6 +55,26 @@ export class FeedsRepository {
     }
   }
 
+  /**
+   * Sets the status of the caller's own Feed and returns the updated row.
+   * Scoped by `user_id`, so a Feed that isn't the caller's matches no row and
+   * yields `null` — indistinguishable from a nonexistent id (non-enumerating).
+   */
+  async setStatus(
+    userId: string,
+    feedId: string,
+    status: FeedStatus,
+  ): Promise<FeedRow | null> {
+    const {rows} = await this.pool.query<FeedRow>(
+      `UPDATE feeds
+          SET status = $3, updated_at = now()
+        WHERE id = $2 AND user_id = $1
+      RETURNING id, url, title, status, created_at, updated_at`,
+      [userId, feedId, status],
+    );
+    return rows[0] ?? null;
+  }
+
   /** Lists the caller's own Feeds, newest first. Scoped strictly to `user_id`. */
   async listForUser(userId: string): Promise<FeedRow[]> {
     const {rows} = await this.pool.query<FeedRow>(

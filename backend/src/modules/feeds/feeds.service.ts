@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import {FEED_VALIDATOR, FeedValidator} from './feed-validator';
 import {
@@ -91,5 +92,30 @@ export class FeedsService {
   async listFeeds(userId: string): Promise<Feed[]> {
     const rows = await this.feeds.listForUser(userId);
     return rows.map(toFeed);
+  }
+
+  /** Moves the caller's Feed to `paused`. Idempotent; 404 if not the caller's. */
+  async pauseFeed(userId: string, feedId: string): Promise<Feed> {
+    return this.setStatus(userId, feedId, 'paused');
+  }
+
+  /** Moves the caller's Feed to `active`. Idempotent; 404 if not the caller's. */
+  async resumeFeed(userId: string, feedId: string): Promise<Feed> {
+    return this.setStatus(userId, feedId, 'active');
+  }
+
+  private async setStatus(
+    userId: string,
+    feedId: string,
+    status: 'active' | 'paused',
+  ): Promise<Feed> {
+    const row = await this.feeds.setStatus(userId, feedId, status);
+    if (!row) {
+      throw new NotFoundException();
+    }
+    this.logger.log(
+      `set-status outcome=updated feedId=${feedId} status=${status} userId=${userId}`,
+    );
+    return toFeed(row);
   }
 }

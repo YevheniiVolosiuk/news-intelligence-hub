@@ -1,4 +1,11 @@
-import {Body, Controller, Get, HttpCode, Post} from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+} from '@nestjs/common';
 import {
   AuthenticatedUser,
   CurrentUser,
@@ -28,5 +35,23 @@ export class FeedsController {
   @Get()
   list(@CurrentUser() user: AuthenticatedUser): Promise<Feed[]> {
     return this.feeds.listFeeds(user.userId);
+  }
+
+  @Post(':id/pause')
+  @HttpCode(200)
+  pause(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Feed> {
+    return this.feeds.pauseFeed(user.userId, id);
+  }
+
+  @Post(':id/resume')
+  @HttpCode(200)
+  resume(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Feed> {
+    return this.feeds.resumeFeed(user.userId, id);
   }
 }

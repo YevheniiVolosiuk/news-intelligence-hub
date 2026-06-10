@@ -170,6 +170,99 @@ describe('Feeds (tenant-scoped)', () => {
     validate.mockRestore();
   });
 
+  it('pauses an active Feed, moving it to status paused', async () => {
+    const {cookie} = await registerAndLogin(harness, 'pause-active@example.com');
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: 'https://pause-me.example.com/feed'})
+      .expect(201);
+    expect(added.body.status).toBe('active');
+
+    const paused = await request(harness.app.getHttpServer())
+      .post(`/feeds/${added.body.id}/pause`)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(paused.body).toMatchObject({id: added.body.id, status: 'paused'});
+  });
+
+  it('resumes a paused Feed back to active, idempotent on repeats', async () => {
+    const {cookie} = await registerAndLogin(harness, 'resume@example.com');
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: 'https://resume-me.example.com/feed'})
+      .expect(201);
+    const id = added.body.id;
+
+    await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/pause`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    // Pausing again is harmless and leaves it paused.
+    const pausedAgain = await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/pause`)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(pausedAgain.body.status).toBe('paused');
+
+    const resumed = await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/resume`)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(resumed.body.status).toBe('active');
+
+    // Resuming an active Feed is harmless and leaves it active.
+    const resumedAgain = await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/resume`)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(resumedAgain.body.status).toBe('active');
+  });
+
+  it('returns 404 when pausing/resuming another User’s Feed and leaves it untouched', async () => {
+    const userA = await registerAndLogin(harness, 'cross-a@example.com');
+    const userB = await registerAndLogin(harness, 'cross-b@example.com');
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', userB.cookie)
+      .send({url: 'https://b-owns.example.com/feed'})
+      .expect(201);
+    const id = added.body.id;
+
+    // A cannot see or act on B's Feed — same shape as a nonexistent id.
+    await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/pause`)
+      .set('Cookie', userA.cookie)
+      .expect(404);
+    await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/resume`)
+      .set('Cookie', userA.cookie)
+      .expect(404);
+
+    // B's Feed is unchanged and still reachable to B.
+    const bList = await request(harness.app.getHttpServer())
+      .get('/feeds')
+      .set('Cookie', userB.cookie)
+      .expect(200);
+    expect(bList.body.find((f: {id: string}) => f.id === id).status).toBe(
+      'active',
+    );
+  });
+
+  it('rejects unauthenticated pause/resume with 401', async () => {
+    await request(harness.app.getHttpServer())
+      .post('/feeds/00000000-0000-0000-0000-000000000000/pause')
+      .expect(401);
+    await request(harness.app.getHttpServer())
+      .post('/feeds/00000000-0000-0000-0000-000000000000/resume')
+      .expect(401);
+  });
+
   it('allows two different Users to add the same URL but blocks a User’s own duplicate', async () => {
     const url = 'https://shared-outlet.example.com/feed';
     const userA = await registerAndLogin(harness, 'dup-a@example.com');
