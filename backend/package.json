@@ -16,7 +16,8 @@
     "worker": "node dist/worker.js",
     "worker:dev": "nodemon --quiet --watch src --ext ts --exec \"ts-node src/worker.ts\"",
     "board": "node dist/bull-board.js",
-    "board:dev": "nodemon --quiet --watch src --ext ts --exec \"ts-node src/bull-board.ts\""
+    "board:dev": "nodemon --quiet --watch src --ext ts --exec \"ts-node src/bull-board.ts\"",
+    "seed:demo": "tsx src/infra/database/seed-demo.ts"
   },
   "dependencies": {
     "@bull-board/api": "^6.5.0",
