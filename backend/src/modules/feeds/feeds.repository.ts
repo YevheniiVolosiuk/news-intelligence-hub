@@ -105,6 +105,22 @@ export class FeedsRepository {
   }
 
   /**
+   * Find the caller's own Feed and return the row, or `null` when it isn't the
+   * caller's. Scoped by `user_id`, so another User's Feed is indistinguishable
+   * from a nonexistent id (non-enumerating) — the read-only counterpart to
+   * `setStatus`/`deleteForUser` used by the manual-pull ownership check.
+   */
+  async findForUser(userId: string, feedId: string): Promise<FeedRow | null> {
+    const {rows} = await this.pool.query<FeedRow>(
+      `SELECT id, url, title, status, last_pulled_at, last_error, created_at, updated_at
+         FROM feeds
+        WHERE id = $2 AND user_id = $1`,
+      [userId, feedId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /**
    * Find a feed by ID (system-level, no tenant scoping).
    * Used by the ingestion worker which operates outside of user context.
    */

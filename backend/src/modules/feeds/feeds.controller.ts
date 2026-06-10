@@ -56,6 +56,15 @@ export class FeedsController {
     return this.feeds.resumeFeed(user.userId, id);
   }
 
+  @Post(':id/pull')
+  @HttpCode(202)
+  pull(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    return this.feeds.requestPull(user.userId, id);
+  }
+
   @Delete(':id')
   @HttpCode(204)
   remove(

@@ -4,6 +4,8 @@ import {FeedsController} from './feeds.controller';
 import {FeedsRepository} from './feeds.repository';
 import {FeedsService} from './feeds.service';
 import {HttpFeedValidator} from './http-feed-validator';
+import {FEED_PULL_PRODUCER} from '../../infra/queues/feed-pull-producer';
+import {BullFeedPullProducer} from '../../infra/queues/bull-feed-pull-producer';
 
 /**
  * Owns the Feeds domain: HTTP boundary, orchestration, and tenant-scoped data
@@ -17,6 +19,7 @@ import {HttpFeedValidator} from './http-feed-validator';
     FeedsService,
     FeedsRepository,
     {provide: FEED_VALIDATOR, useFactory: () => new HttpFeedValidator()},
+    {provide: FEED_PULL_PRODUCER, useClass: BullFeedPullProducer},
   ],
   exports: [FeedsRepository],
 })

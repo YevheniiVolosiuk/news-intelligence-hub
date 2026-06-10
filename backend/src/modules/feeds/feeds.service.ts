@@ -13,6 +13,10 @@ import {
   FeedsRepository,
 } from './feeds.repository';
 import {normaliseUrl} from '../../common/utils/url';
+import {
+  FEED_PULL_PRODUCER,
+  FeedPullProducer,
+} from '../../infra/queues/feed-pull-producer';
 
 export interface Feed {
   id: string;
@@ -41,6 +45,7 @@ export class FeedsService {
   constructor(
     private readonly feeds: FeedsRepository,
     @Inject(FEED_VALIDATOR) private readonly validator: FeedValidator,
+    @Inject(FEED_PULL_PRODUCER) private readonly pullProducer: FeedPullProducer,
   ) {}
 
   async addFeed(userId: string, url: string): Promise<Feed> {
@@ -97,6 +102,23 @@ export class FeedsService {
       throw new NotFoundException();
     }
     this.logger.log(`delete-feed outcome=deleted feedId=${feedId} userId=${userId}`);
+  }
+
+  /**
+   * Enqueues a one-shot pull of the caller's Feed and returns immediately so the
+   * UI stays responsive — the worker runs the ingestion. 404 if the Feed isn't
+   * the caller's (non-enumerating). No LLM/ingestion work happens here
+   * (Principle 3): the HTTP boundary only produces a job.
+   */
+  async requestPull(userId: string, feedId: string): Promise<void> {
+    const feed = await this.feeds.findForUser(userId, feedId);
+    if (!feed) {
+      throw new NotFoundException();
+    }
+    await this.pullProducer.enqueuePull(feedId);
+    this.logger.log(
+      `request-pull outcome=enqueued feedId=${feedId} userId=${userId}`,
+    );
   }
 
   private async setStatus(
