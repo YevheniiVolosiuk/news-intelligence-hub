@@ -47,6 +47,7 @@ describe('Feeds (tenant-scoped)', () => {
   beforeEach(() => {
     harness.notifier.clear();
     harness.feedValidator.clear();
+    harness.feedPullProducer.clear();
   });
 
   it('adds a valid Feed and returns it at status active', async () => {
@@ -335,6 +336,52 @@ describe('Feeds (tenant-scoped)', () => {
     await request(harness.app.getHttpServer())
       .delete('/feeds/00000000-0000-0000-0000-000000000000')
       .expect(401);
+  });
+
+  it('accepts a manual pull of the caller’s Feed with 202 and enqueues exactly one job', async () => {
+    const {cookie} = await registerAndLogin(harness, 'pull-own@example.com');
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: 'https://pull-me.example.com/feed'})
+      .expect(201);
+    const id = added.body.id;
+
+    await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/pull`)
+      .set('Cookie', cookie)
+      .expect(202);
+
+    // Exactly one feed-pull job carrying this Feed's id.
+    expect(harness.feedPullProducer.enqueued).toEqual([id]);
+  });
+
+  it('returns 404 when pulling another User’s Feed and enqueues nothing', async () => {
+    const userA = await registerAndLogin(harness, 'pull-cross-a@example.com');
+    const userB = await registerAndLogin(harness, 'pull-cross-b@example.com');
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', userB.cookie)
+      .send({url: 'https://b-pulls.example.com/feed'})
+      .expect(201);
+
+    // A cannot pull B's Feed — same shape as a nonexistent id.
+    await request(harness.app.getHttpServer())
+      .post(`/feeds/${added.body.id}/pull`)
+      .set('Cookie', userA.cookie)
+      .expect(404);
+
+    expect(harness.feedPullProducer.enqueued).toEqual([]);
+  });
+
+  it('rejects an unauthenticated manual pull with 401', async () => {
+    await request(harness.app.getHttpServer())
+      .post('/feeds/00000000-0000-0000-0000-000000000000/pull')
+      .expect(401);
+
+    expect(harness.feedPullProducer.enqueued).toEqual([]);
   });
 
   it('allows two different Users to add the same URL but blocks a User’s own duplicate', async () => {

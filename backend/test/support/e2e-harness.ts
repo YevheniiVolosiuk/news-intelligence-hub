@@ -11,10 +11,12 @@ import {CONFIRMATION_LINK_NOTIFIER} from '../../src/modules/auth/confirmation-li
 import {CLOCK} from '../../src/common/utils/clock';
 import {FEED_VALIDATOR} from '../../src/modules/feeds/feed-validator';
 import {FEED_FETCHER} from '../../src/modules/ingestion/feed-fetcher';
+import {FEED_PULL_PRODUCER} from '../../src/infra/queues/feed-pull-producer';
 import {runMigrations} from '../../src/infra/database/migrate';
 import {CapturingConfirmationLinkNotifier} from './capturing-notifier';
 import {StubFeedValidator} from './stub-feed-validator';
 import {StubFeedFetcher} from './stub-feed-fetcher';
+import {StubFeedPullProducer} from './stub-feed-pull-producer';
 
 export interface E2EHarness {
   app: INestApplication;
@@ -24,6 +26,8 @@ export interface E2EHarness {
   feedValidator: StubFeedValidator;
   /** Deterministic FeedFetcher double; stub specific URLs to return feed XML. */
   feedFetcher: StubFeedFetcher;
+  /** Capturing FeedPullProducer double; records every enqueued feed id. */
+  feedPullProducer: StubFeedPullProducer;
   /** Mutate this to control what the clock returns during the test. */
   clock: {now: () => Date};
   close: () => Promise<void>;
@@ -53,6 +57,7 @@ export async function startE2EHarness(): Promise<E2EHarness> {
   const notifier = new CapturingConfirmationLinkNotifier();
   const feedValidator = new StubFeedValidator();
   const feedFetcher = new StubFeedFetcher();
+  const feedPullProducer = new StubFeedPullProducer();
   const clockState = {now: () => new Date()};
   const moduleRef = await Test.createTestingModule({imports: [AppModule]})
     .overrideProvider(CONFIRMATION_LINK_NOTIFIER)
@@ -61,6 +66,8 @@ export async function startE2EHarness(): Promise<E2EHarness> {
     .useValue(feedValidator)
     .overrideProvider(FEED_FETCHER)
     .useValue(feedFetcher)
+    .overrideProvider(FEED_PULL_PRODUCER)
+    .useValue(feedPullProducer)
     .overrideProvider(CLOCK)
     .useFactory({factory: () => () => clockState.now()})
     .compile();
@@ -78,6 +85,7 @@ export async function startE2EHarness(): Promise<E2EHarness> {
     notifier,
     feedValidator,
     feedFetcher,
+    feedPullProducer,
     clock: clockState,
     close: async () => {
       await pool.end().catch(() => undefined);
