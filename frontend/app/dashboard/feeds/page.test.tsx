@@ -88,9 +88,7 @@ describe('Dashboard FeedsPage', () => {
     await user.click(pauseBtn);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', {name: /resume/i}),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: /resume/i})).toBeInTheDocument();
     });
     expect(mockFetch).toHaveBeenLastCalledWith(
       expect.stringContaining('/feeds/f1/pause'),
@@ -211,5 +209,36 @@ describe('Dashboard FeedsPage', () => {
     });
     // The button returns to its idle, ready state.
     expect(screen.getByRole('button', {name: /add feed/i})).toBeEnabled();
+  });
+
+  it('rejects a duplicate URL (409) inline and adds no new feed row (US-16)', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, []));
+
+    render(<FeedsPage />);
+    const user = userEvent.setup();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/feed url/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/no feeds yet/i)).toBeInTheDocument();
+
+    mockFetch.mockResolvedValueOnce(jsonResponse(409, {reason: 'duplicate'}));
+
+    await user.type(
+      screen.getByLabelText(/feed url/i),
+      'https://news.example.com/rss',
+    );
+    await user.click(screen.getByRole('button', {name: /add feed/i}));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/already following that feed/i),
+      ).toBeInTheDocument();
+    });
+
+    // No new Feed row was added: the empty-state placeholder remains and the
+    // submitted URL never appears in the list.
+    expect(screen.getByText(/no feeds yet/i)).toBeInTheDocument();
+    expect(screen.queryByText('https://news.example.com/rss')).toBeNull();
   });
 });
