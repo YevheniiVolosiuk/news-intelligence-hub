@@ -1,34 +1,39 @@
 import {createServer} from 'node:http';
 import {Worker as BullWorker, Job} from 'bullmq';
 import {NestFactory} from '@nestjs/core';
+import {JsonLogger} from './common/logging/json-logger';
 import {redisConnectionOptions} from './infra/cache/redis';
 import {QUEUE_FEED_PULL} from './infra/queues/queues';
 import {WorkerModule} from './worker.module';
-import {IngestionService, PullSummary} from './modules/ingestion/ingestion.service';
+import {
+  IngestionService,
+  PullSummary,
+} from './modules/ingestion/ingestion.service';
 
-/** Structured single-line log so worker output is greppable in `docker logs`. */
+const WORKER_CONTEXT = 'Worker';
+const logger = new JsonLogger();
+
+/** Structured single-line log, sharing the JSON format used across the stack. */
 function log(
   level: 'info' | 'error',
   msg: string,
   extra: Record<string, unknown> = {},
 ): void {
-  const line = JSON.stringify({
-    level,
-    msg,
-    ts: Math.floor(Date.now() / 1000),
-    ...extra,
-  });
+  const message = {msg, ...extra};
   if (level === 'error') {
-    process.stderr.write(line + '\n');
+    logger.error(message, WORKER_CONTEXT);
   } else {
-    process.stdout.write(line + '\n');
+    logger.log(message, WORKER_CONTEXT);
   }
 }
 
 async function bootstrap(): Promise<void> {
   // Bootstrap NestJS ApplicationContext so the worker shares DI,
   // Postgres pool, parser, Pre-Filter, and FeedFetcher with the API.
-  const ctx = await NestFactory.createApplicationContext(WorkerModule);
+  const ctx = await NestFactory.createApplicationContext(WorkerModule, {
+    bufferLogs: true,
+  });
+  ctx.useLogger(logger);
   const ingestion = ctx.get(IngestionService);
 
   const connection = redisConnectionOptions();
@@ -59,7 +64,11 @@ async function bootstrap(): Promise<void> {
     log('info', 'worker.ready', {queue: QUEUE_FEED_PULL, concurrency}),
   );
   worker.on('failed', (job, err) =>
-    log('error', 'job.failed', {jobId: job?.id, feedId: job?.data?.feedId, error: err.message}),
+    log('error', 'job.failed', {
+      jobId: job?.id,
+      feedId: job?.data?.feedId,
+      error: err.message,
+    }),
   );
 
   // Tiny HTTP endpoint so the container has a meaningful health check.
@@ -89,7 +98,7 @@ async function bootstrap(): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'));
 }
 
-bootstrap().catch((err) => {
+bootstrap().catch(err => {
   log('error', 'worker.bootstrap.failed', {error: String(err)});
   process.exit(1);
 });

@@ -61,7 +61,8 @@ export class BullFeedPullScheduler
     for (const feedId of activeFeedIds) {
       await this.schedule(feedId);
     }
-    this.logger.log(`reconcile outcome=synced active=${activeFeedIds.length}`);
+    // The `reconcile outcome=synced` line is emitted once by FeedPullReconciler,
+    // the orchestration seam that calls this method; not duplicated here.
   }
 
   async onModuleDestroy(): Promise<void> {

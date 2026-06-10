@@ -12,7 +12,7 @@
 Hold for every slice:
 
 - Google TS Style Guide; linter green; no dead code; no non-printable Unicode (zero-width, BOM, directional marks).
-- Structured logs with identifiers + outcome on every worker operation (NFR-2). Never swallow errors.
+- Structured logs with identifiers + outcome on every worker operation (NFR-2). Never swallow errors. Logs are single-line JSON across API and worker via `common/logging/JsonLogger` (ADR-0003).
 - All config via env; update `.env.example` with every new variable; no secrets in the repo.
 - No LLM calls from HTTP handlers — always through the queue (Principle 3).
 - The LLM is a precision tool: use it only for semantic work; do everything deterministic (parsing, hashing, dedup by URL/hash, pre-filter, graph assembly) in plain code (Principle 1).
