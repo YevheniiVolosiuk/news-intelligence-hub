@@ -6,7 +6,8 @@ COMPOSE_PROD := docker compose -f docker-compose.yml -f docker-compose.prod.yml
 
 .DEFAULT_GOAL := help
 
-.PHONY: help env up build down logs ps restart clean prod-up prod-down
+.PHONY: help env up build down logs ps restart clean prod-up prod-down \
+        fe-up fe-logs
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -41,3 +42,11 @@ prod-up: ## Start the hardened production stack (detached)
 
 prod-down: ## Stop the production stack
 	$(COMPOSE_PROD) down
+
+# ---- Frontend HMR --------------------------------------------------------- #
+
+fe-up: ## Start only the frontend service with HMR in Docker (http://localhost:3000)
+	$(COMPOSE) up frontend
+
+fe-logs: ## Tail logs from the frontend container
+	$(COMPOSE) logs -f frontend
