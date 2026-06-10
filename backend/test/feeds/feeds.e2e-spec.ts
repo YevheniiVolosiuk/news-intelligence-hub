@@ -48,6 +48,7 @@ describe('Feeds (tenant-scoped)', () => {
     harness.notifier.clear();
     harness.feedValidator.clear();
     harness.feedPullProducer.clear();
+    harness.feedPullScheduler.clear();
   });
 
   it('adds a valid Feed and returns it at status active', async () => {
@@ -172,7 +173,10 @@ describe('Feeds (tenant-scoped)', () => {
   });
 
   it('pauses an active Feed, moving it to status paused', async () => {
-    const {cookie} = await registerAndLogin(harness, 'pause-active@example.com');
+    const {cookie} = await registerAndLogin(
+      harness,
+      'pause-active@example.com',
+    );
 
     const added = await request(harness.app.getHttpServer())
       .post('/feeds')
@@ -287,7 +291,10 @@ describe('Feeds (tenant-scoped)', () => {
   });
 
   it('returns 404 on a second delete of the same Feed', async () => {
-    const {cookie} = await registerAndLogin(harness, 'double-delete@example.com');
+    const {cookie} = await registerAndLogin(
+      harness,
+      'double-delete@example.com',
+    );
 
     const added = await request(harness.app.getHttpServer())
       .post('/feeds')
@@ -382,6 +389,92 @@ describe('Feeds (tenant-scoped)', () => {
       .expect(401);
 
     expect(harness.feedPullProducer.enqueued).toEqual([]);
+  });
+
+  it('registers a repeatable pull when a Feed is added', async () => {
+    const {cookie} = await registerAndLogin(
+      harness,
+      'schedule-add@example.com',
+    );
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: 'https://schedule-add.example.com/feed'})
+      .expect(201);
+
+    expect(harness.feedPullScheduler.scheduled.has(added.body.id)).toBe(true);
+  });
+
+  it('removes the repeatable when a Feed is paused', async () => {
+    const {cookie} = await registerAndLogin(
+      harness,
+      'schedule-pause@example.com',
+    );
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: 'https://schedule-pause.example.com/feed'})
+      .expect(201);
+    const id = added.body.id;
+    expect(harness.feedPullScheduler.scheduled.has(id)).toBe(true);
+
+    await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/pause`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    expect(harness.feedPullScheduler.scheduled.has(id)).toBe(false);
+  });
+
+  it('re-registers the repeatable when a paused Feed is resumed', async () => {
+    const {cookie} = await registerAndLogin(
+      harness,
+      'schedule-resume@example.com',
+    );
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: 'https://schedule-resume.example.com/feed'})
+      .expect(201);
+    const id = added.body.id;
+
+    await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/pause`)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(harness.feedPullScheduler.scheduled.has(id)).toBe(false);
+
+    await request(harness.app.getHttpServer())
+      .post(`/feeds/${id}/resume`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    expect(harness.feedPullScheduler.scheduled.has(id)).toBe(true);
+  });
+
+  it('removes the repeatable when a Feed is deleted, leaving no orphan', async () => {
+    const {cookie} = await registerAndLogin(
+      harness,
+      'schedule-delete@example.com',
+    );
+
+    const added = await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: 'https://schedule-delete.example.com/feed'})
+      .expect(201);
+    const id = added.body.id;
+    expect(harness.feedPullScheduler.scheduled.has(id)).toBe(true);
+
+    await request(harness.app.getHttpServer())
+      .delete(`/feeds/${id}`)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    expect(harness.feedPullScheduler.scheduled.has(id)).toBe(false);
   });
 
   it('allows two different Users to add the same URL but blocks a User’s own duplicate', async () => {
