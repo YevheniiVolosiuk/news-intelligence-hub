@@ -52,7 +52,7 @@ export default function AccountPage() {
                   size="lg"
                   className="h-10 rounded-lg hover:bg-primary/80"
                 >
-                  <a href="/feeds">Manage feeds</a>
+                  <a href="/dashboard/feeds">Manage feeds</a>
                 </Button>
                 <Button
                   onClick={() => void logout()}
