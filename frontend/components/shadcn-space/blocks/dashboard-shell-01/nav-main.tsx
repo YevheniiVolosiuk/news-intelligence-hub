@@ -80,7 +80,7 @@ export function NavMain({items}: {items: NavItem[]}) {
                 className={cn(
                   'rounded-lg text-sm px-3 py-2 h-9 ',
                   isActive
-                    ? 'bg-primary hover:bg-primary dark:bg-blue-500 text-white dark:hover:bg-blue-500 hover:text-white'
+                    ? 'bg-primary hover:bg-primary text-primary-foreground hover:text-primary-foreground'
                     : '',
                 )}
               >

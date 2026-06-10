@@ -28,15 +28,15 @@ const chartData = [
 const chartConfig = {
   expense: {
     label: 'Expense',
-    color: 'var(--color-blue-500)',
+    color: 'hsl(var(--primary))',
   },
   profit: {
     label: 'Profit',
-    color: 'var(--color-sky-400)',
+    color: 'hsl(var(--primary) / 0.6)',
   },
   earning: {
     label: 'Earning',
-    color: 'rgba(56, 189, 248, 0.5)',
+    color: 'hsl(var(--primary) / 0.3)',
   },
 } satisfies ChartConfig;
 
@@ -45,17 +45,17 @@ export default function SalesOverviewChart() {
     {
       id: 1,
       title: 'Earning',
-      color: 'bg-sky-400/50',
+      color: 'bg-primary/30',
     },
     {
       id: 2,
       title: 'Profit',
-      color: 'bg-sky-400',
+      color: 'bg-primary/60',
     },
     {
       id: 3,
       title: 'Expense',
-      color: 'bg-blue-500',
+      color: 'bg-primary',
     },
   ];
 
@@ -69,7 +69,7 @@ export default function SalesOverviewChart() {
               $386.53K
             </h3>
             <Badge
-              className={cn('bg-teal-400/10 text-muted-foreground shadow-none')}
+              className={cn('bg-success/10 text-muted-foreground shadow-none')}
             >
               +18%
             </Badge>

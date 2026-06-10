@@ -33,7 +33,7 @@ const DEFAULT_TRANS_DATA = [
     country: 'United states',
     rank: '$8,567k',
     badgeData: '+4.7%',
-    badgeBG: 'bg-teal-400/10',
+    badgeBG: 'bg-success/10',
   },
   {
     img: 'https://images.shadcnspace.com/assets/flags/flag-brazil.svg',
@@ -41,7 +41,7 @@ const DEFAULT_TRANS_DATA = [
     country: 'Brazil',
     rank: '$2,415k',
     badgeData: '-1.7%',
-    badgeBG: 'bg-orange-400/10',
+    badgeBG: 'bg-warning/10',
   },
   {
     img: 'https://images.shadcnspace.com/assets/flags/flag-india.svg',
@@ -49,7 +49,7 @@ const DEFAULT_TRANS_DATA = [
     country: 'India',
     rank: '$865k',
     badgeData: '+4.7%',
-    badgeBG: 'bg-teal-400/10',
+    badgeBG: 'bg-success/10',
   },
   {
     img: 'https://images.shadcnspace.com/assets/flags/flag-australia.svg',
@@ -57,7 +57,7 @@ const DEFAULT_TRANS_DATA = [
     country: 'Australia',
     rank: '$745k',
     badgeData: '-1.7%',
-    badgeBG: 'bg-orange-400/10',
+    badgeBG: 'bg-warning/10',
   },
   {
     img: 'https://images.shadcnspace.com/assets/flags/flag-france.svg',
@@ -65,7 +65,7 @@ const DEFAULT_TRANS_DATA = [
     country: 'France',
     rank: '$45',
     badgeData: '+4.7%',
-    badgeBG: 'bg-teal-400/10',
+    badgeBG: 'bg-success/10',
   },
   {
     img: 'https://images.shadcnspace.com/assets/flags/flag-china.svg',
@@ -73,7 +73,7 @@ const DEFAULT_TRANS_DATA = [
     country: 'China',
     rank: '$12k',
     badgeData: '+4.7%',
-    badgeBG: 'bg-teal-400/10',
+    badgeBG: 'bg-success/10',
   },
 ];
 

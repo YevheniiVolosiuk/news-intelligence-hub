@@ -10,6 +10,10 @@ import SalesByCountryWidget from '@/components/shadcn-space/blocks/dashboard-she
  * Dashboard overview body. The real feature (Feeds overview) sits at the top;
  * the original dashboard-shell widgets stay below, clearly fenced off as mock
  * examples until they're replaced or removed.
+ *
+ * The widgets below are INTENTIONAL placeholder examples on mock data — not
+ * shipped features and not dead code to strip. See the blocks README:
+ * components/shadcn-space/blocks/dashboard-shell-01/README.md
  */
 export default function DashboardOverview() {
   return (

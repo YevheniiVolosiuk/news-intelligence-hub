@@ -58,7 +58,7 @@ const UserDropdown = ({trigger, defaultOpen, align = 'end'}: Props) => {
                 <Avatar className="data-[size=lg]:size-8">
                   <AvatarFallback>{initialFor(user?.email)}</AvatarFallback>
                 </Avatar>
-                <span className="ring-card absolute right-0 bottom-0 size-2 rounded-full bg-green-600 ring-2" />
+                <span className="ring-card absolute right-0 bottom-0 size-2 rounded-full bg-success ring-2" />
               </div>
 
               <div className="flex min-w-0 flex-col">

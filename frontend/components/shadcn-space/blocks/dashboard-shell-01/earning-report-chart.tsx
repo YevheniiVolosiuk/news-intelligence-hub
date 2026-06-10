@@ -13,9 +13,9 @@ import {
 import {cn} from '@/lib/utils';
 
 const chartData = [
-  {browser: 'Website', visitors: 60, fill: 'var(--color-blue-500)'},
-  {browser: 'Marketplace', visitors: 20, fill: 'var(--color-sky-400)'},
-  {browser: 'Affiliate', visitors: 20, fill: 'rgba(56, 189, 248, 0.5)'},
+  {browser: 'Website', visitors: 60, fill: 'hsl(var(--primary))'},
+  {browser: 'Marketplace', visitors: 20, fill: 'hsl(var(--primary) / 0.6)'},
+  {browser: 'Affiliate', visitors: 20, fill: 'hsl(var(--primary) / 0.3)'},
 ];
 
 const chartConfig = {
@@ -24,15 +24,15 @@ const chartConfig = {
   },
   Website: {
     label: 'Website',
-    color: 'var(--color-blue-500)',
+    color: 'hsl(var(--primary))',
   },
   Marketplace: {
     label: 'Marketplace',
-    color: 'var(--color-sky-400)',
+    color: 'hsl(var(--primary) / 0.6)',
   },
   Affiliate: {
     label: 'Affiliate',
-    color: 'var(--color-blue-500)',
+    color: 'hsl(var(--primary) / 0.3)',
   },
 } satisfies ChartConfig;
 
@@ -42,8 +42,8 @@ export default function EarningReportChart() {
       id: 1,
       customer: 'Website ',
       tagColor: 'muted-foreground',
-      borderColor: 'bg-blue-500',
-      badgeColor: 'bg-teal-400/10',
+      borderColor: 'bg-primary',
+      badgeColor: 'bg-success/10',
       earning: 18356,
       growthPercentage: '+4.7%',
     },
@@ -51,8 +51,8 @@ export default function EarningReportChart() {
       id: 2,
       customer: 'Marketplace',
       tagColor: 'muted-foreground',
-      borderColor: 'bg-sky-400',
-      badgeColor: 'bg-teal-400/10',
+      borderColor: 'bg-primary/60',
+      badgeColor: 'bg-success/10',
       earning: 4590,
       growthPercentage: '+2.1%',
     },
@@ -60,8 +60,8 @@ export default function EarningReportChart() {
       id: 3,
       customer: 'Affiliate',
       tagColor: 'muted-foreground',
-      borderColor: 'bg-sky-400/50',
-      badgeColor: 'bg-teal-400/10',
+      borderColor: 'bg-primary/30',
+      badgeColor: 'bg-success/10',
       earning: 4385,
       growthPercentage: '-1.7%',
     },

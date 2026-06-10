@@ -100,8 +100,8 @@ const StatisticsBlock = ({
                           className={cn(
                             'font-normal text-muted-foreground',
                             metric.isPositive
-                              ? 'bg-teal-400/10 '
-                              : 'bg-red-500/10',
+                              ? 'bg-success/10 '
+                              : 'bg-destructive/10',
                           )}
                         >
                           {metric.percentage}
@@ -143,8 +143,8 @@ const StatisticsBlock = ({
                       className={cn(
                         'font-normal text-muted-foreground',
                         stat.isPositive !== false
-                          ? 'bg-teal-400/10'
-                          : 'bg-red-500/10',
+                          ? 'bg-success/10'
+                          : 'bg-destructive/10',
                       )}
                     >
                       {stat.percentage}
