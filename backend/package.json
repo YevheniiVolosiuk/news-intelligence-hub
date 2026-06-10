@@ -31,6 +31,7 @@
     "cookie-parser": "^1.4.7",
     "express": "^5.0.1",
     "express-basic-auth": "^1.2.1",
+    "fast-xml-parser": "^5.8.0",
     "ioredis": "^5.4.1",
     "jose": "^6.2.3",
     "node-pg-migrate": "^8.0.4",
