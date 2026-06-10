@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/sidebar';
 import Logo from '@/assets/logo/logo';
 import {NavMain} from '@/components/shadcn-space/blocks/dashboard-shell-01/nav-main';
-import {LayoutDashboard, Rss, CircleUserRound, LucideIcon} from 'lucide-react';
+import {LayoutDashboard, Rss, Settings, LucideIcon} from 'lucide-react';
 import {SiteHeader} from '@/components/shadcn-space/blocks/dashboard-shell-01/site-header';
 import SimpleBar from 'simplebar-react';
 import 'simplebar-react/dist/simplebar.min.css';
@@ -28,8 +28,8 @@ export type NavItem = {
 export const navData: NavItem[] = [
   {label: 'Menu', isSection: true},
   {title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard'},
-  {title: 'Feeds', icon: Rss, href: '/feeds'},
-  {title: 'Account', icon: CircleUserRound, href: '/account'},
+  {title: 'Feeds', icon: Rss, href: '/dashboard/feeds'},
+  {title: 'Settings', icon: Settings, href: '/dashboard/settings'},
 ];
 
 /* -------------------------------------------------------------------------- */

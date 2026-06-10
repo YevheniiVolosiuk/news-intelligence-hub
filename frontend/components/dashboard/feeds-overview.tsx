@@ -61,7 +61,7 @@ export default function FeedsOverview() {
             </p>
           </div>
           <a
-            href="/feeds"
+            href="/dashboard/feeds"
             className="text-card-foreground text-sm font-medium hover:underline"
           >
             View all
@@ -84,7 +84,10 @@ export default function FeedsOverview() {
           {loaded && feeds.length === 0 ? (
             <li className="text-muted-foreground text-sm">
               No feeds yet.{' '}
-              <a href="/feeds" className="text-card-foreground font-medium">
+              <a
+                href="/dashboard/feeds"
+                className="text-card-foreground font-medium"
+              >
                 Add one
               </a>{' '}
               to get started.

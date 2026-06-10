@@ -26,10 +26,10 @@ type MenuItem = {
   href: string;
 };
 
-// Until richer account surfaces exist, every link points at the account page.
+// Until richer account surfaces exist, every link points at the settings view.
 const ACCOUNT_ITEMS: MenuItem[] = [
-  {label: 'My Profile', icon: CircleUserRound, href: '/account'},
-  {label: 'Account Settings', icon: Settings, href: '/account'},
+  {label: 'My Profile', icon: CircleUserRound, href: '/dashboard/settings'},
+  {label: 'Account Settings', icon: Settings, href: '/dashboard/settings'},
 ];
 
 const itemClass =
