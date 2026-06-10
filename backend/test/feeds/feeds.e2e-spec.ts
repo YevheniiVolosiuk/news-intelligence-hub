@@ -125,6 +125,51 @@ describe('Feeds (tenant-scoped)', () => {
     );
   });
 
+  it.each([
+    ['malformed', 'https://reject-malformed.example.com/feed'],
+    ['unreachable', 'https://reject-unreachable.example.com/feed'],
+    ['not-a-feed', 'https://reject-not-a-feed.example.com/'],
+    ['timeout', 'https://reject-timeout.example.com/feed'],
+  ] as const)(
+    'rejects a %s URL with 4xx + reason and creates no Feed',
+    async (reason, url) => {
+      const {cookie} = await registerAndLogin(
+        harness,
+        `reject-${reason}@example.com`,
+      );
+      harness.feedValidator.set(url, {ok: false, reason});
+
+      const res = await request(harness.app.getHttpServer())
+        .post('/feeds')
+        .set('Cookie', cookie)
+        .send({url})
+        .expect(400);
+      expect(res.body.reason).toBe(reason);
+
+      const list = await request(harness.app.getHttpServer())
+        .get('/feeds')
+        .set('Cookie', cookie)
+        .expect(200);
+      expect(list.body.map((f: {url: string}) => f.url)).not.toContain(url);
+    },
+  );
+
+  it('rejects an empty URL with 4xx before reaching the validator probe', async () => {
+    const {cookie} = await registerAndLogin(
+      harness,
+      'reject-empty@example.com',
+    );
+
+    const validate = jest.spyOn(harness.feedValidator, 'validate');
+    await request(harness.app.getHttpServer())
+      .post('/feeds')
+      .set('Cookie', cookie)
+      .send({url: ''})
+      .expect(400);
+    expect(validate).not.toHaveBeenCalled();
+    validate.mockRestore();
+  });
+
   it('allows two different Users to add the same URL but blocks a User’s own duplicate', async () => {
     const url = 'https://shared-outlet.example.com/feed';
     const userA = await registerAndLogin(harness, 'dup-a@example.com');
