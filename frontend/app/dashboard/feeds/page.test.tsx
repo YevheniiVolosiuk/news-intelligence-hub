@@ -140,6 +140,42 @@ describe('Dashboard FeedsPage', () => {
     );
   });
 
+  it('deletes a feed via the delete endpoint and removes it from the list', async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(200, [
+        {
+          id: 'f1',
+          url: 'https://news.example.com/rss',
+          title: null,
+          status: 'active',
+          createdAt: '2026-06-10T00:00:00.000Z',
+          updatedAt: '2026-06-10T00:00:00.000Z',
+        },
+      ]),
+    );
+
+    render(<FeedsPage />);
+    const user = userEvent.setup();
+
+    await screen.findByText('https://news.example.com/rss');
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      json: () => Promise.resolve({}),
+    });
+
+    await user.click(screen.getByRole('button', {name: /delete/i}));
+
+    await waitFor(() => {
+      expect(screen.queryByText('https://news.example.com/rss')).toBeNull();
+    });
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/feeds/f1'),
+      expect.objectContaining({method: 'DELETE'}),
+    );
+  });
+
   it('shows a loading state during the probe, then the rejection reason inline', async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse(200, []));
 

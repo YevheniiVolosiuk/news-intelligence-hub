@@ -1,7 +1,7 @@
 'use client';
 
 import {useCallback, useEffect, useState, type FormEvent} from 'react';
-import {Pause, Play, Plus, Rss} from 'lucide-react';
+import {Pause, Play, Plus, Rss, Trash2} from 'lucide-react';
 import {PageBody} from '@/components/dashboard/page-body';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent} from '@/components/ui/card';
@@ -89,6 +89,20 @@ export default function FeedsPage() {
       }
     } catch {
       // Best-effort; the row keeps its current status on failure.
+    }
+  }, []);
+
+  const deleteFeed = useCallback(async (feed: Feed) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/feeds/${feed.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setFeeds(prev => prev.filter(f => f.id !== feed.id));
+      }
+    } catch {
+      // Best-effort; the row stays put on failure.
     }
   }, []);
 
@@ -220,6 +234,16 @@ export default function FeedsPage() {
                             )}
                           </Button>
                         ) : null}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void deleteFeed(feed)}
+                          className="text-muted-foreground hover:text-destructive h-8 gap-1.5 rounded-lg px-2.5"
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </Button>
                       </div>
                     </li>
                   ))
