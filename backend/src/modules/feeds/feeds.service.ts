@@ -12,6 +12,7 @@ import {
   FeedRow,
   FeedsRepository,
 } from './feeds.repository';
+import {normaliseUrl} from '../../common/utils/url';
 
 export interface Feed {
   id: string;
@@ -20,24 +21,6 @@ export interface Feed {
   status: 'active' | 'paused' | 'error';
   createdAt: string;
   updatedAt: string;
-}
-
-/**
- * Normalises a URL for the per-User uniqueness rule: lowercased host and no
- * trailing slash, so `https://Example.com/feed/` and `https://example.com/feed`
- * collide for the same User. Parsing failures fall back to a trimmed string so
- * the validator remains the single authority on well-formedness.
- */
-function normaliseUrl(url: string): string {
-  try {
-    const parsed = new URL(url.trim());
-    parsed.hostname = parsed.hostname.toLowerCase();
-    let out = parsed.toString();
-    if (out.endsWith('/')) out = out.slice(0, -1);
-    return out;
-  } catch {
-    return url.trim().toLowerCase();
-  }
 }
 
 function toFeed(row: FeedRow): Feed {
