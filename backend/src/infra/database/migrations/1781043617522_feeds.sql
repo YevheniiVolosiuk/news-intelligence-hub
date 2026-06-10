@@ -5,6 +5,12 @@
 -- read/mutated through `WHERE id = $1 AND user_id = $2` (the Slice 1 primitive).
 CREATE TABLE feeds (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- ON DELETE CASCADE is intentional: a Feed is a User's private subscription
+  -- (it has no meaning without its owner), so deleting a User removes that
+  -- User's Feeds. This is the *opposite* of the Article -> Feed rule below and
+  -- in ADR-0001: deleting a Feed must DETACH shared Articles (ON DELETE SET
+  -- NULL), never cascade them away. Owned subscription => cascade; shared
+  -- content => detach.
   user_id        uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   url            text NOT NULL,
   -- Normalised form (lowercased host, no trailing slash) backing the per-User

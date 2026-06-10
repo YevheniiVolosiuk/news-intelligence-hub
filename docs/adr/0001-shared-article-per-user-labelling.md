@@ -12,3 +12,18 @@ User has a Feed or Labelling linking to it.
 Trade-off: large LLM/storage savings and natural deduplication, bought at the price of a
 subtler isolation model that must be proven correct at every read path rather than falling
 out of physical row separation. Maps to Principle 4 (multi-tenant isolation).
+
+## Note: cascade policies differ by ownership
+
+This sharing model produces two deliberately *opposite* delete policies, which should not
+be conflated:
+
+- **Feed → User is `ON DELETE CASCADE`** (`feeds.user_id`, the Slice 2 migration). A Feed is
+  a User's private subscription with no meaning apart from its owner, so deleting a User
+  removes that User's Feeds.
+- **Article → Feed must be `ON DELETE SET NULL`** (realised in Slice 3). Articles are shared
+  raw content per the decision above; deleting a Feed must *detach* its Articles, never
+  cascade-delete them, or one User's unsubscribe would destroy data other Users still rely
+  on.
+
+Rule of thumb: owned/private rows cascade with their owner; shared rows detach.
