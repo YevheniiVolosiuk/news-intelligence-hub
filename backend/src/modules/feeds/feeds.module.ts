@@ -18,5 +18,6 @@ import {HttpFeedValidator} from './http-feed-validator';
     FeedsRepository,
     {provide: FEED_VALIDATOR, useFactory: () => new HttpFeedValidator()},
   ],
+  exports: [FeedsRepository],
 })
 export class FeedsModule {}

@@ -9,6 +9,8 @@ export interface FeedRow {
   url: string;
   title: string | null;
   status: FeedStatus;
+  last_pulled_at: Date | null;
+  last_error: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -43,7 +45,7 @@ export class FeedsRepository {
       const {rows} = await this.pool.query<FeedRow>(
         `INSERT INTO feeds (user_id, url, normalised_url, title)
          VALUES ($1, $2, $3, $4)
-         RETURNING id, url, title, status, created_at, updated_at`,
+         RETURNING id, url, title, status, last_pulled_at, last_error, created_at, updated_at`,
         [userId, url, normalisedUrl, title],
       );
       return rows[0];
@@ -69,7 +71,7 @@ export class FeedsRepository {
       `UPDATE feeds
           SET status = $3, updated_at = now()
         WHERE id = $2 AND user_id = $1
-      RETURNING id, url, title, status, created_at, updated_at`,
+      RETURNING id, url, title, status, last_pulled_at, last_error, created_at, updated_at`,
       [userId, feedId, status],
     );
     return rows[0] ?? null;
@@ -93,12 +95,46 @@ export class FeedsRepository {
   /** Lists the caller's own Feeds, newest first. Scoped strictly to `user_id`. */
   async listForUser(userId: string): Promise<FeedRow[]> {
     const {rows} = await this.pool.query<FeedRow>(
-      `SELECT id, url, title, status, created_at, updated_at
+      `SELECT id, url, title, status, last_pulled_at, last_error, created_at, updated_at
          FROM feeds
         WHERE user_id = $1
         ORDER BY created_at DESC`,
       [userId],
     );
     return rows;
+  }
+
+  /**
+   * Find a feed by ID (system-level, no tenant scoping).
+   * Used by the ingestion worker which operates outside of user context.
+   */
+  async findById(feedId: string): Promise<FeedRow | null> {
+    const {rows} = await this.pool.query<FeedRow>(
+      `SELECT id, url, title, status, last_pulled_at, last_error, created_at, updated_at
+         FROM feeds
+        WHERE id = $1`,
+      [feedId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /** Mark a feed as successfully pulled (active + timestamp). */
+  async updatePullSuccess(feedId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE feeds
+          SET status = 'active', last_pulled_at = now(), last_error = NULL, updated_at = now()
+        WHERE id = $1`,
+      [feedId],
+    );
+  }
+
+  /** Mark a feed as errored with a message. */
+  async updatePullError(feedId: string, error: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE feeds
+          SET status = 'error', last_error = $2, updated_at = now()
+        WHERE id = $1`,
+      [feedId, error],
+    );
   }
 }
