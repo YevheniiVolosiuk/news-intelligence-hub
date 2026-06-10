@@ -16,7 +16,7 @@ import {HttpFeedValidator} from './http-feed-validator';
   providers: [
     FeedsService,
     FeedsRepository,
-    {provide: FEED_VALIDATOR, useClass: HttpFeedValidator},
+    {provide: FEED_VALIDATOR, useFactory: () => new HttpFeedValidator()},
   ],
 })
 export class FeedsModule {}
