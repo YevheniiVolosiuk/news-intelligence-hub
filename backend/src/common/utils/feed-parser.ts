@@ -82,7 +82,8 @@ function parseRssChannel(channel: Record<string, unknown>): ParseFeedSuccess {
     items: items.map((item) => ({
       title: textOf(item.title),
       link: textOf(item.link),
-      content: textOf(item.description) || textOf(item['content:encoded']),
+      // `content:encoded` arrives as `encoded` because removeNSPrefix strips the prefix.
+      content: textOf(item.description) || textOf(item.encoded),
       publishedAt: toIsoDate(textOf(item.pubDate)),
     })),
   };
@@ -120,7 +121,8 @@ function parseRdf(root: Record<string, unknown>): ParseFeedSuccess {
       title: textOf(item.title),
       link: textOf(item.link),
       content: textOf(item.description),
-      publishedAt: toIsoDate(textOf(item['dc:date'])),
+      // `dc:date` arrives as `date` because removeNSPrefix strips the prefix.
+      publishedAt: toIsoDate(textOf(item.date)),
     })),
   };
 }

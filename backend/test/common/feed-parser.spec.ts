@@ -39,6 +39,27 @@ describe('parseFeed', () => {
     expect(first.publishedAt).toBe('2025-06-09T10:00:00.000Z');
   });
 
+  it('reads an RSS item body from content:encoded when description is absent', () => {
+    const rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Full Text Feed</title>
+    <link>https://example.com</link>
+    <item>
+      <title>Long Read</title>
+      <link>https://example.com/long-read</link>
+      <content:encoded>The full article body lives here.</content:encoded>
+    </item>
+  </channel>
+</rss>`;
+
+    const result = parseFeed(rss);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.items[0].content).toBe('The full article body lives here.');
+  });
+
   // ── Atom ────────────────────────────────────────────────────────
 
   it('parses an Atom feed into normalised items', () => {
@@ -93,6 +114,30 @@ describe('parseFeed', () => {
     expect(result.items[0].title).toBe('Mars Discovery');
     expect(result.items[0].link).toBe('https://science.example.com/mars');
     expect(result.items[0].content).toBe('Water found on Mars surface.');
+  });
+
+  it('reads an RDF item publish date from dc:date', () => {
+    const rdf = `<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns="http://purl.org/rss/1.0/">
+  <channel>
+    <title>Dated Science Feed</title>
+    <link>https://science.example.com</link>
+  </channel>
+  <item>
+    <title>Dated Discovery</title>
+    <link>https://science.example.com/dated</link>
+    <description>Has a Dublin Core date.</description>
+    <dc:date>2025-06-07T09:30:00Z</dc:date>
+  </item>
+</rdf:RDF>`;
+
+    const result = parseFeed(rdf);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.items[0].publishedAt).toBe('2025-06-07T09:30:00.000Z');
   });
 
   // ── Malformed XML ───────────────────────────────────────────────
