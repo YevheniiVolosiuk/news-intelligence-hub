@@ -27,7 +27,7 @@ export function AuthGuard({mode, children}: AuthGuardProps) {
   }
 
   if (mode === 'guest' && user) {
-    router.replace('/account');
+    router.replace('/dashboard');
     return null;
   }
 

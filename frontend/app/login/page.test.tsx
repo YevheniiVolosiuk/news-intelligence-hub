@@ -43,7 +43,7 @@ describe('LoginPage', () => {
     capturedHref = '';
   });
 
-  it('redirects to /account after successful login', async () => {
+  it('redirects to /dashboard after successful login', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -58,7 +58,7 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', {name: /sign in/i}));
 
     await waitFor(() => {
-      expect(capturedHref).toBe('/account');
+      expect(capturedHref).toBe('/dashboard');
     });
   });
 });

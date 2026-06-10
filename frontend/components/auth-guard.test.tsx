@@ -38,7 +38,7 @@ describe('AuthGuard', () => {
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
   });
 
-  it('redirects to /account when authenticated in guest mode', () => {
+  it('redirects to /dashboard when authenticated in guest mode', () => {
     mockUseAuth.mockReturnValue({
       user: {id: '1', email: 'a@b.com'},
       loading: false,
@@ -52,7 +52,7 @@ describe('AuthGuard', () => {
       </AuthGuard>,
     );
 
-    expect(mockReplace).toHaveBeenCalledWith('/account');
+    expect(mockReplace).toHaveBeenCalledWith('/dashboard');
     expect(screen.queryByText('Guest content')).not.toBeInTheDocument();
   });
 

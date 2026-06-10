@@ -70,7 +70,7 @@ describe('Auth routing', () => {
     expect(screen.getByText('a@b.com')).toBeInTheDocument();
   });
 
-  it('redirects to /account when authenticated on /login', () => {
+  it('redirects to /dashboard when authenticated on /login', () => {
     mockUseAuth.mockReturnValue(authed());
 
     render(
@@ -79,10 +79,10 @@ describe('Auth routing', () => {
       </AuthGuard>,
     );
 
-    expect(mockReplace).toHaveBeenCalledWith('/account');
+    expect(mockReplace).toHaveBeenCalledWith('/dashboard');
   });
 
-  it('redirects to /account when authenticated on /register', () => {
+  it('redirects to /dashboard when authenticated on /register', () => {
     mockUseAuth.mockReturnValue(authed());
 
     render(
@@ -91,7 +91,7 @@ describe('Auth routing', () => {
       </AuthGuard>,
     );
 
-    expect(mockReplace).toHaveBeenCalledWith('/account');
+    expect(mockReplace).toHaveBeenCalledWith('/dashboard');
   });
 
   it('shows spinner while loading on protected page', () => {

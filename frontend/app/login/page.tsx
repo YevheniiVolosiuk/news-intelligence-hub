@@ -56,7 +56,7 @@ export default function LoginPage() {
       const body = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        window.location.href = '/account';
+        window.location.href = '/dashboard';
       } else if (res.status === 400) {
         const messages = Array.isArray(body.message)
           ? (body.message as string[])
