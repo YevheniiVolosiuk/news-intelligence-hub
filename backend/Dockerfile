@@ -3,14 +3,14 @@
 # One image, three entrypoints selected via the compose `command:`.
 
 # --- Dependencies (production only) ---
-FROM node:22-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev
 
 # --- Builder (full deps + compile to dist/) ---
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # --- Development (full deps, source mounted at runtime, hot reload) ---
-FROM node:22-alpine AS development
+FROM node:24-alpine AS development
 WORKDIR /app
 ENV NODE_ENV=development
 COPY package.json package-lock.json ./
@@ -30,7 +30,7 @@ EXPOSE 3000 9229
 CMD ["npm", "run", "start:dev"]
 
 # --- Production (minimal, non-root, runtime artifacts only) ---
-FROM node:22-alpine AS production
+FROM node:24-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup -g 1001 -S appuser && adduser -S -u 1001 -G appuser appuser

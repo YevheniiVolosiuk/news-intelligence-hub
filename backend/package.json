@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "description": "News Intelligence Hub backend: NestJS API, BullMQ worker, and Bull Board panel. Skeleton stage - proves the stack boots and connects to Postgres and Redis.",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build": "nest build",
     "lint": "eslint .",
