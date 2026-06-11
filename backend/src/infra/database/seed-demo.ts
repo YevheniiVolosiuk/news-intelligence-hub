@@ -22,8 +22,12 @@ async function main(): Promise<void> {
     console.log(`✓ Feeds:        ${result.feeds.length}`);
     console.log(`✓ Sources:      ${result.sources.length}`);
     console.log(`✓ Articles:     ${result.articles.length}`);
-    const pending = result.articles.filter(a => a.processingState === 'pending').length;
-    const filtered = result.articles.filter(a => a.processingState === 'filtered').length;
+    const pending = result.articles.filter(
+      a => a.processingState === 'pending',
+    ).length;
+    const filtered = result.articles.filter(
+      a => a.processingState === 'filtered',
+    ).length;
     console.log(`  (${pending} pending, ${filtered} filtered)`);
   } finally {
     await pool.end();

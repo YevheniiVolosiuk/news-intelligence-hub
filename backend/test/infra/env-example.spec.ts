@@ -12,7 +12,7 @@ const srcDir = resolve(__dirname, '../../src');
 const envExamplePath = join(repoRoot, '.env.example');
 
 function walkTsFiles(dir: string): string[] {
-  return readdirSync(dir, {withFileTypes: true}).flatMap((entry) => {
+  return readdirSync(dir, {withFileTypes: true}).flatMap(entry => {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) return walkTsFiles(full);
     return entry.isFile() && full.endsWith('.ts') ? [full] : [];
@@ -45,7 +45,7 @@ describe('.env.example', () => {
   it('documents every env var the backend source reads', () => {
     const documented = documentedVars();
     const missing = [...envVarsReadInSrc()]
-      .filter((name) => !documented.has(name))
+      .filter(name => !documented.has(name))
       .sort();
 
     expect(missing).toEqual([]);

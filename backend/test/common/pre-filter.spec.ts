@@ -22,12 +22,17 @@ describe('preFilter', () => {
 
   it('returns filtered with reason "empty" when both title and content are null', () => {
     expect(
-      preFilter({title: null as unknown as string, content: null as unknown as string}),
+      preFilter({
+        title: null as unknown as string,
+        content: null as unknown as string,
+      }),
     ).toEqual({state: 'filtered', reason: 'empty'});
   });
 
   it('returns filtered with reason "below-min-length" when content is null but title exists', () => {
-    expect(preFilter({title: 'Some title', content: null as unknown as string})).toEqual({
+    expect(
+      preFilter({title: 'Some title', content: null as unknown as string}),
+    ).toEqual({
       state: 'filtered',
       reason: 'below-min-length',
     });
@@ -76,7 +81,9 @@ describe('preFilter', () => {
       'We use cookies to improve your experience.',
       'By continuing to use this site you accept our cookie policy.',
       'Manage your preferences below.',
-    ].join(' ').padEnd(300, '.');
+    ]
+      .join(' ')
+      .padEnd(300, '.');
 
     const result = preFilter({title: 'Cookie Policy', content: cookieText});
     expect(result).toEqual({state: 'filtered', reason: 'seo-boilerplate'});

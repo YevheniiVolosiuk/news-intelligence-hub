@@ -1,4 +1,4 @@
-import { normaliseUrl } from '../../src/common/utils/url';
+import {normaliseUrl} from '../../src/common/utils/url';
 
 describe('normaliseUrl', () => {
   it('lowercases the host', () => {

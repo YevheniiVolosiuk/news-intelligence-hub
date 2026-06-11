@@ -51,10 +51,8 @@ export class HttpFeedFetcher implements FeedFetcher {
       return {ok: true, body, contentType};
     } catch (err) {
       const isAbort = err instanceof DOMException && err.name === 'AbortError';
-      const reason = isAbort ? 'timeout' as const : 'unreachable' as const;
-      this.logger.log(
-        `fetch outcome=${reason} host=${new URL(url).hostname}`,
-      );
+      const reason = isAbort ? ('timeout' as const) : ('unreachable' as const);
+      this.logger.log(`fetch outcome=${reason} host=${new URL(url).hostname}`);
       return {ok: false, reason};
     } finally {
       clearTimeout(timer);

@@ -1,4 +1,7 @@
-import {FeedFetcher, FeedFetchResult} from '../../src/modules/ingestion/feed-fetcher';
+import {
+  FeedFetcher,
+  FeedFetchResult,
+} from '../../src/modules/ingestion/feed-fetcher';
 
 export class StubFeedFetcher implements FeedFetcher {
   private readonly results = new Map<string, FeedFetchResult>();

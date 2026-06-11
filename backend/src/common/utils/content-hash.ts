@@ -9,5 +9,7 @@ import {createHash} from 'crypto';
  * `{title:"A",body:"B"}` never collides with `{title:"B",body:"A"}`.
  */
 export function computeContentHash(title: string, body: string): string {
-  return createHash('sha256').update(JSON.stringify([title, body])).digest('hex');
+  return createHash('sha256')
+    .update(JSON.stringify([title, body]))
+    .digest('hex');
 }

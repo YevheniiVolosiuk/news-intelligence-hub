@@ -32,7 +32,7 @@ const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
   textNodeName: '#text',
-  isArray: (name) => name === 'item' || name === 'entry',
+  isArray: name => name === 'item' || name === 'entry',
   parseTagValue: false,
   parseAttributeValue: false,
   trimValues: true,
@@ -49,10 +49,10 @@ function toIsoDate(raw: string | undefined | null): string | null {
 
 /** Safely extract text from a field that may be a string or an object with #text. */
 function textOf(val: unknown): string {
-  if (val == null) return '';
+  if (val === null || val === undefined) return '';
   if (typeof val === 'string') return val;
   if (typeof val === 'object' && val !== null && '#text' in val) {
-    return String((val as Record<string, unknown>)['#text']) ?? '';
+    return String((val as Record<string, unknown>)['#text']);
   }
   return String(val);
 }
@@ -62,12 +62,11 @@ function atomLinkHref(val: unknown): string {
   if (typeof val === 'string') return val;
   if (Array.isArray(val)) {
     // Prefer rel="alternate" or the first link
-    const alt = val.find(
-      (l) => l['@_rel'] === 'alternate' || !l['@_rel'],
-    );
+    const alt = val.find(l => l['@_rel'] === 'alternate' || !l['@_rel']);
     return alt?.['@_href'] ?? val[0]?.['@_href'] ?? '';
   }
-  if (typeof val === 'object' && val !== null) return (val as Record<string, unknown>)['@_href'] as string ?? '';
+  if (typeof val === 'object' && val !== null)
+    return ((val as Record<string, unknown>)['@_href'] as string) ?? '';
   return '';
 }
 
@@ -79,7 +78,7 @@ function parseRssChannel(channel: Record<string, unknown>): ParseFeedSuccess {
   return {
     ok: true,
     sourceTitle: textOf(channel.title),
-    items: items.map((item) => ({
+    items: items.map(item => ({
       title: textOf(item.title),
       link: textOf(item.link),
       // `content:encoded` arrives as `encoded` because removeNSPrefix strips the prefix.
@@ -97,7 +96,7 @@ function parseAtomFeed(feed: Record<string, unknown>): ParseFeedSuccess {
   return {
     ok: true,
     sourceTitle: textOf(feed.title),
-    items: entries.map((entry) => ({
+    items: entries.map(entry => ({
       title: textOf(entry.title),
       link: atomLinkHref(entry.link),
       content: textOf(entry.content) || textOf(entry.summary),
@@ -117,7 +116,7 @@ function parseRdf(root: Record<string, unknown>): ParseFeedSuccess {
   return {
     ok: true,
     sourceTitle: textOf(channel?.title),
-    items: items.map((item) => ({
+    items: items.map(item => ({
       title: textOf(item.title),
       link: textOf(item.link),
       content: textOf(item.description),
@@ -146,7 +145,10 @@ export function parseFeed(xml: string): ParseFeedResult {
 
   // 3. Detect feed type and delegate
   if (parsed.rss) {
-    const channel = (parsed.rss as Record<string, unknown>).channel as Record<string, unknown>;
+    const channel = (parsed.rss as Record<string, unknown>).channel as Record<
+      string,
+      unknown
+    >;
     if (!channel) return {ok: false, reason: 'not-a-feed'};
     return parseRssChannel(channel);
   }

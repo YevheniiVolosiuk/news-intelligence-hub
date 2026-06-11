@@ -18,7 +18,10 @@ export class SourcesRepository {
    * Find or create a Source by its normalised host.
    * Two feeds at the same host collapse to one source row (ADR-0001).
    */
-  async findOrCreate(normalisedHost: string, title: string | null): Promise<SourceRow> {
+  async findOrCreate(
+    normalisedHost: string,
+    title: string | null,
+  ): Promise<SourceRow> {
     const {rows} = await this.pool.query<SourceRow>(
       `INSERT INTO sources (normalised_host, title)
        VALUES ($1, $2)

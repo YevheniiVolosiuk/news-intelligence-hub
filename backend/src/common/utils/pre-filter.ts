@@ -24,7 +24,11 @@ export interface PendingResult {
 
 export interface FilteredResult {
   state: 'filtered';
-  reason: 'empty' | 'below-min-length' | 'no-extractable-text' | 'seo-boilerplate';
+  reason:
+    | 'empty'
+    | 'below-min-length'
+    | 'no-extractable-text'
+    | 'seo-boilerplate';
 }
 
 export type PreFilterResult = PendingResult | FilteredResult;
@@ -91,7 +95,8 @@ export function preFilter(
   item: PreFilterable,
   config: PreFilterConfig = {},
 ): PreFilterResult {
-  const minLength = config.minLength ?? Number(process.env.PREFILTER_MIN_LENGTH ?? 200);
+  const minLength =
+    config.minLength ?? Number(process.env.PREFILTER_MIN_LENGTH ?? 200);
 
   const content = item.content;
   const title = (item.title ?? '').trim();

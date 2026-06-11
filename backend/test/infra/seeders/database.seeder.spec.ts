@@ -1,6 +1,12 @@
 import {Pool} from 'pg';
-import {startMigrationHarness, MigrationHarness} from '../../support/migration-harness';
-import {seedDemoData, DemoSeedResult} from '../../../src/infra/database/seeders/database.seeder';
+import {
+  startMigrationHarness,
+  MigrationHarness,
+} from '../../support/migration-harness';
+import {
+  seedDemoData,
+  DemoSeedResult,
+} from '../../../src/infra/database/seeders/database.seeder';
 
 describe('seedDemoData', () => {
   let harness: MigrationHarness;
@@ -36,7 +42,7 @@ describe('seedDemoData', () => {
     expect(result.feeds.length).toBeGreaterThanOrEqual(3);
 
     const {rows} = await pool.query(
-      `SELECT id, url, title FROM feeds WHERE user_id = $1`,
+      'SELECT id, url, title FROM feeds WHERE user_id = $1',
       [result.user.id],
     );
     expect(rows.length).toBeGreaterThanOrEqual(3);
@@ -76,8 +82,8 @@ describe('seedDemoData', () => {
     expect(rows.length).toBeGreaterThanOrEqual(4);
 
     const seededSourceIds = new Set(result.sources.map(s => s.id));
-    const articlesOnSeededSources = rows.filter(
-      (r: {source_id: string}) => seededSourceIds.has(r.source_id),
+    const articlesOnSeededSources = rows.filter((r: {source_id: string}) =>
+      seededSourceIds.has(r.source_id),
     );
     expect(articlesOnSeededSources.length).toBeGreaterThanOrEqual(4);
 

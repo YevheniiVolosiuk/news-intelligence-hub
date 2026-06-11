@@ -7,6 +7,13 @@ import {IngestionModule} from './modules/ingestion/ingestion.module';
 import {DatabaseModule} from './infra/database/database.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, UsersModule, FeedsModule, HealthModule, IngestionModule],
+  imports: [
+    DatabaseModule,
+    AuthModule,
+    UsersModule,
+    FeedsModule,
+    HealthModule,
+    IngestionModule,
+  ],
 })
 export class AppModule {}
