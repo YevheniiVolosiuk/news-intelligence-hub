@@ -87,4 +87,50 @@ export class ArticlesRepository {
       [articleId],
     );
   }
+
+  /**
+   * Defer an Article to the `awaiting` terminal after a provider outage exhausts
+   * its retries (Slice 4.6). `awaiting` is retryable: a re-drain re-enqueues it
+   * once the provider recovers. The error is recorded so an operator sees why it
+   * is waiting.
+   */
+  async markAwaiting(articleId: string, error: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE articles
+          SET processing_state = 'awaiting', processing_error = $2,
+              updated_at = now()
+        WHERE id = $1`,
+      [articleId, error],
+    );
+  }
+
+  /**
+   * Fast-fail an Article to the `failed` terminal when its LLM response fails
+   * validation (Slice 4.6). Unlike `awaiting`, `failed` is NOT retryable: it
+   * signals a prompt/model fix and a re-drain leaves it alone. The error is
+   * recorded so the fix it points to is visible.
+   */
+  async markFailed(articleId: string, error: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE articles
+          SET processing_state = 'failed', processing_error = $2,
+              updated_at = now()
+        WHERE id = $1`,
+      [articleId, error],
+    );
+  }
+
+  /**
+   * The ids of every `awaiting` Article, oldest first — the working set a manual
+   * re-drain re-enqueues once the provider recovers (Slice 4.6). `failed`
+   * Articles are deliberately excluded: their terminal is non-retryable.
+   */
+  async findAwaitingIds(): Promise<string[]> {
+    const {rows} = await this.pool.query<{id: string}>(
+      `SELECT id FROM articles
+        WHERE processing_state = 'awaiting'
+        ORDER BY updated_at ASC`,
+    );
+    return rows.map(row => row.id);
+  }
 }
