@@ -98,6 +98,18 @@ export class LabellingService {
     // unchanged Article under the same model + prompt_version reuses a prior
     // analysis. On a miss we call the provider and memoise only the validated
     // result — a throw (outage or validation failure) writes nothing below.
+    // Resolve the owning User up front, before the provider is reached: every
+    // outcome — success, cache hit, or failure — is one accounting row attributed
+    // to this User (US-13), and an orphan Article (no owner) is not a labelling
+    // worth a provider call.
+    const userId = article.feed_id
+      ? await this.feedsRepo.findUserId(article.feed_id)
+      : null;
+    if (!userId) {
+      this.logger.log(`label-article outcome=no-owner articleId=${articleId}`);
+      return;
+    }
+
     const contentHash = article.content_hash ?? '';
     const cacheKey = llmCacheKey(contentHash, this.llm.model, PROMPT_VERSION);
     const startedAt = Date.now();
@@ -115,7 +127,7 @@ export class LabellingService {
           content: article.content ?? '',
         });
       } catch (err) {
-        return this.handleLabelFailure(articleId, err, opts);
+        return this.handleLabelFailure(articleId, userId, startedAt, err, opts);
       }
       analysis = result.analysis;
       usage = result.usage;
@@ -128,14 +140,6 @@ export class LabellingService {
       });
     }
     const latencyMs = Date.now() - startedAt;
-
-    const userId = article.feed_id
-      ? await this.feedsRepo.findUserId(article.feed_id)
-      : null;
-    if (!userId) {
-      this.logger.log(`label-article outcome=no-owner articleId=${articleId}`);
-      return;
-    }
 
     await this.labellingsRepo.upsert({
       userId,
@@ -174,17 +178,22 @@ export class LabellingService {
   /**
    * Resolve a failed provider call into one of the two non-success terminals
    * (Slice 4.6, Principle 2). The control flow throws back nothing trustworthy,
-   * so no Labelling, cache row, or ok-telemetry is written on either branch.
+   * so no Labelling or cache row is written on either branch — but each terminal
+   * is one line in the spend ledger: a non-cache call that spent zero tokens,
+   * tagged with the outcome it reached (US-13, "one row per outcome").
    *
    * - Provider outage (timeout / rate-limit / 5xx): retryable. Until retries are
-   *   spent the error is re-thrown so BullMQ retries with backoff; on the final
-   *   attempt the Article defers to `awaiting`.
+   *   spent the error is re-thrown so BullMQ retries with backoff and *no* row is
+   *   written — an in-flight retry is not yet an outcome. On the final attempt the
+   *   Article defers to `awaiting` and that terminal is recorded.
    * - Validation failure (response fails the zod schema): not retryable. Fail
    *   fast to `failed` — a re-run would only reproduce the same bad shape; it
    *   signals a prompt/model fix, so it is visibly flagged, never looped.
    */
   private async handleLabelFailure(
     articleId: string,
+    userId: string,
+    startedAt: number,
     err: unknown,
     opts: {finalAttempt?: boolean},
   ): Promise<void> {
@@ -194,6 +203,7 @@ export class LabellingService {
       // Non-retryable: a malformed shape will recur on every attempt. Fail fast
       // to `failed` so it is visibly flagged for a prompt/model fix.
       await this.articlesRepo.markFailed(articleId, message);
+      await this.recordFailureTelemetry(articleId, userId, startedAt, 'failed');
       this.logger.warn(
         `label-article outcome=failed articleId=${articleId} error=${message}`,
       );
@@ -201,13 +211,41 @@ export class LabellingService {
     }
 
     if (!opts.finalAttempt) {
-      // Retries remain — surface the error so BullMQ retries with backoff.
+      // Retries remain — surface the error so BullMQ retries with backoff. No
+      // telemetry yet: the job has not reached a terminal outcome.
       throw err;
     }
 
     await this.articlesRepo.markAwaiting(articleId, message);
+    await this.recordFailureTelemetry(articleId, userId, startedAt, 'awaiting');
     this.logger.warn(
       `label-article outcome=awaiting articleId=${articleId} error=${message}`,
     );
+  }
+
+  /**
+   * Append the spend-ledger row for a terminal failure: a real (non-cache)
+   * provider call that returned nothing usable, so zero tokens, tagged with the
+   * Processing State terminal it drove the Article to (`awaiting` | `failed`).
+   */
+  private async recordFailureTelemetry(
+    articleId: string,
+    userId: string,
+    startedAt: number,
+    outcome: 'awaiting' | 'failed',
+  ): Promise<void> {
+    await this.telemetryRepo.record({
+      operation: OPERATION,
+      provider: this.llm.provider,
+      model: this.llm.model,
+      promptTokens: ZERO_USAGE.promptTokens,
+      completionTokens: ZERO_USAGE.completionTokens,
+      totalTokens: ZERO_USAGE.totalTokens,
+      cacheHit: false,
+      outcome,
+      articleId,
+      userId,
+      latencyMs: Date.now() - startedAt,
+    });
   }
 }

@@ -438,6 +438,38 @@ describe('LabellingService.labelArticle (integration)', () => {
     expect(cache[0].cnt).toBe(0);
   });
 
+  it('records an awaiting telemetry row when an outage is exhausted', async () => {
+    const content = 'Body whose outage on the final attempt must be accounted.';
+    const {userId, articleId} = await insertPendingArticle(content);
+
+    // The provider is down through the final attempt: the Article defers to
+    // `awaiting`, and that outcome is one line in the spend ledger — a real
+    // (non-cache) call that spent nothing because nothing came back.
+    llm.failWith(new Error('provider timeout'));
+    await labelling.labelArticle(articleId, {finalAttempt: true});
+    llm.failWith(undefined);
+
+    const {rows} = await pool.query(
+      `SELECT operation, provider, model, prompt_tokens, completion_tokens,
+              total_tokens, cache_hit, outcome, article_id, user_id, latency_ms
+         FROM llm_telemetry WHERE article_id = $1`,
+      [articleId],
+    );
+    expect(rows).toHaveLength(1);
+    const row = rows[0];
+    expect(row.outcome).toBe('awaiting');
+    expect(row.operation).toBe('processing');
+    expect(row.provider).toBe('stub');
+    expect(row.model).toBe('stub-model');
+    expect(row.cache_hit).toBe(false);
+    expect(row.prompt_tokens).toBe(0);
+    expect(row.completion_tokens).toBe(0);
+    expect(row.total_tokens).toBe(0);
+    expect(row.article_id).toBe(articleId);
+    expect(row.user_id).toBe(userId);
+    expect(Number.isInteger(row.latency_ms)).toBe(true);
+  });
+
   it('re-throws an outage while retries remain, leaving the Article pending', async () => {
     const content = 'Body whose provider blips on a non-final attempt.';
     const {articleId} = await insertPendingArticle(content);
@@ -493,6 +525,54 @@ describe('LabellingService.labelArticle (integration)', () => {
       [cacheKey],
     );
     expect(cache[0].cnt).toBe(0);
+  });
+
+  it('records a failed telemetry row when a response fails validation', async () => {
+    const content = 'Body whose un-parseable response must still be accounted.';
+    const {userId, articleId} = await insertPendingArticle(content);
+
+    // A validation failure drives the Article straight to `failed`; that terminal
+    // is its own line in the ledger — a real call that spent nothing usable.
+    llm.failWith(new LlmValidationError('importance: invalid enum value'));
+    await labelling.labelArticle(articleId, {finalAttempt: false});
+    llm.failWith(undefined);
+
+    const {rows} = await pool.query(
+      `SELECT outcome, cache_hit, prompt_tokens, completion_tokens,
+              total_tokens, operation, article_id, user_id
+         FROM llm_telemetry WHERE article_id = $1`,
+      [articleId],
+    );
+    expect(rows).toHaveLength(1);
+    const row = rows[0];
+    expect(row.outcome).toBe('failed');
+    expect(row.cache_hit).toBe(false);
+    expect(row.prompt_tokens).toBe(0);
+    expect(row.completion_tokens).toBe(0);
+    expect(row.total_tokens).toBe(0);
+    expect(row.operation).toBe('processing');
+    expect(row.article_id).toBe(articleId);
+    expect(row.user_id).toBe(userId);
+  });
+
+  it('writes no telemetry row while retries remain on an outage', async () => {
+    const content = 'Body whose non-final outage is not yet a ledger outcome.';
+    const {articleId} = await insertPendingArticle(content);
+
+    // A non-final outage re-throws for a BullMQ retry — it has not reached a
+    // terminal outcome, so it must not write a spend row (one row per outcome,
+    // not one per attempt).
+    llm.failWith(new Error('provider 503'));
+    await expect(
+      labelling.labelArticle(articleId, {finalAttempt: false}),
+    ).rejects.toThrow('provider 503');
+    llm.failWith(undefined);
+
+    const {rows} = await pool.query(
+      'SELECT COUNT(*)::int AS cnt FROM llm_telemetry WHERE article_id = $1',
+      [articleId],
+    );
+    expect(rows[0].cnt).toBe(0);
   });
 
   it('re-drains awaiting Articles and leaves failed Articles alone', async () => {
