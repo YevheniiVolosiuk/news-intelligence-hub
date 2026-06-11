@@ -14,6 +14,8 @@ import {StubFeedFetcher} from '../support/stub-feed-fetcher';
 import {StubFeedPullProducer} from '../support/stub-feed-pull-producer';
 import {StubArticleLabelProducer} from '../support/stub-article-label-producer';
 import {StubLlmService} from '../support/stub-llm-service';
+import {computeContentHash} from '../../src/common/utils/content-hash';
+import {llmCacheKey} from '../../src/infra/llm/llm-cache-key';
 import {runMigrations} from '../../src/infra/database/migrate';
 import {WorkerModule} from '../../src/worker.module';
 
@@ -94,9 +96,16 @@ describe('LabellingService.labelArticle (integration)', () => {
       rows: [article],
     } = await pool.query(
       `INSERT INTO articles
-         (source_id, feed_id, url, normalised_url, title, content, processing_state)
-       VALUES ($1, $2, $3, $3, 'An Article', $4, 'pending') RETURNING id`,
-      [source.id, feed.id, url, content],
+         (source_id, feed_id, url, normalised_url, content_hash,
+          title, content, processing_state)
+       VALUES ($1, $2, $3, $3, $4, 'An Article', $5, 'pending') RETURNING id`,
+      [
+        source.id,
+        feed.id,
+        url,
+        computeContentHash('An Article', content),
+        content,
+      ],
     );
     return {userId: user.id, articleId: article.id};
   }
@@ -141,9 +150,12 @@ describe('LabellingService.labelArticle (integration)', () => {
       importance: 'normal',
       entities: [],
     });
+    const before = llm.callCount;
     await labelling.labelArticle(articleId);
 
-    // Same job runs again — e.g. a BullMQ retry. The second pass overwrites.
+    // Same job runs again — e.g. a BullMQ retry. Even though the provider would
+    // now answer differently, the content is unchanged, so the re-run is a cache
+    // hit: the stored analysis is reused and the provider is not called again.
     llm.set(content, {
       summary: 'Second pass.',
       importance: 'important',
@@ -151,13 +163,16 @@ describe('LabellingService.labelArticle (integration)', () => {
     });
     await labelling.labelArticle(articleId);
 
+    expect(llm.callCount).toBe(before + 1);
+
+    // The upsert leaves exactly one row, holding the first (cached) analysis.
     const {rows} = await pool.query(
       'SELECT summary, importance FROM labellings WHERE article_id = $1',
       [articleId],
     );
     expect(rows).toHaveLength(1);
-    expect(rows[0].summary).toBe('Second pass.');
-    expect(rows[0].importance).toBe('important');
+    expect(rows[0].summary).toBe('First pass.');
+    expect(rows[0].importance).toBe('normal');
   });
 
   it('never labels a pre-filtered Article', async () => {
@@ -185,5 +200,97 @@ describe('LabellingService.labelArticle (integration)', () => {
       [articleId],
     );
     expect(articles[0].processing_state).toBe('filtered');
+  });
+
+  it('a cache miss calls the provider once and writes an llm_cache row', async () => {
+    const content = 'Distinct content that has never been analysed before.';
+    const {articleId} = await insertPendingArticle(content);
+    const result = {
+      summary: 'Cached summary.',
+      importance: 'normal' as const,
+      entities: [{name: 'Globex', type: 'company' as const}],
+    };
+    llm.set(content, result);
+
+    const before = llm.callCount;
+    await labelling.labelArticle(articleId);
+
+    // The provider was reached exactly once for the cold content.
+    expect(llm.callCount).toBe(before + 1);
+
+    // The row is keyed by sha256(content_hash + model + prompt_version) and
+    // stores the validated analysis verbatim.
+    const cacheKey = llmCacheKey(
+      computeContentHash('An Article', content),
+      'stub-model',
+      'v1',
+    );
+    const {rows} = await pool.query(
+      `SELECT content_hash, model, prompt_version, result_json
+         FROM llm_cache WHERE cache_key = $1`,
+      [cacheKey],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].model).toBe('stub-model');
+    expect(rows[0].prompt_version).toBe('v1');
+    expect(rows[0].result_json).toEqual(result);
+  });
+
+  it('reuses the cached result for a second User/Article without a provider call', async () => {
+    const content = 'Identical body two Feeds both happen to carry.';
+    const result = {
+      summary: 'Shared analysis.',
+      importance: 'important' as const,
+      entities: [{name: 'Initech', type: 'company' as const}],
+    };
+
+    // First User/Article: cold miss, provider analyses and the row is written.
+    const first = await insertPendingArticle(content);
+    llm.set(content, result);
+    await labelling.labelArticle(first.articleId);
+
+    // Second User/Article with the *same content* — a different Feed owner.
+    const second = await insertPendingArticle(content);
+    const callsAfterFirst = llm.callCount;
+    await labelling.labelArticle(second.articleId);
+
+    // The cache served the second labelling: the provider was not reached again.
+    expect(llm.callCount).toBe(callsAfterFirst);
+
+    // The reused result produces the same Labelling fields for the second pair.
+    const {rows} = await pool.query(
+      `SELECT user_id, summary, importance, entities
+         FROM labellings WHERE article_id = $1`,
+      [second.articleId],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].user_id).toBe(second.userId);
+    expect(rows[0].summary).toBe('Shared analysis.');
+    expect(rows[0].importance).toBe('important');
+    expect(rows[0].entities).toEqual([{name: 'Initech', type: 'company'}]);
+  });
+
+  it('writes no cache row when the provider call fails', async () => {
+    const content = 'Body whose analysis fails and must not be memoised.';
+    const {articleId} = await insertPendingArticle(content);
+
+    llm.failWith(new Error('provider outage'));
+    await expect(labelling.labelArticle(articleId)).rejects.toThrow(
+      'provider outage',
+    );
+    llm.failWith(undefined); // clear the failure so later tests are unaffected
+
+    // A bad outcome is never memoised — the next labelling of this content must
+    // be a fresh miss, not a poisoned hit.
+    const cacheKey = llmCacheKey(
+      computeContentHash('An Article', content),
+      'stub-model',
+      'v1',
+    );
+    const {rows} = await pool.query(
+      'SELECT COUNT(*)::int AS cnt FROM llm_cache WHERE cache_key = $1',
+      [cacheKey],
+    );
+    expect(rows[0].cnt).toBe(0);
   });
 });

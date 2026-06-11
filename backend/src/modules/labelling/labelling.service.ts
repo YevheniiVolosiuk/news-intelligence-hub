@@ -2,11 +2,13 @@ import {Inject, Injectable, Logger} from '@nestjs/common';
 import {FeedsRepository} from '../feeds/feeds.repository';
 import {ArticlesRepository} from '../ingestion/articles.repository';
 import {LabellingsRepository} from './labellings.repository';
+import {LlmCacheRepository} from './llm-cache.repository';
 import {
   LLM_SERVICE,
   LlmService,
   PROMPT_VERSION,
 } from '../../infra/llm/llm-service';
+import {llmCacheKey} from '../../infra/llm/llm-cache-key';
 
 /**
  * Entry seam for the labelling flow, the analogue of `IngestionService.pullFeed`
@@ -23,6 +25,7 @@ export class LabellingService {
     private readonly articlesRepo: ArticlesRepository,
     private readonly feedsRepo: FeedsRepository,
     private readonly labellingsRepo: LabellingsRepository,
+    private readonly llmCacheRepo: LlmCacheRepository,
     @Inject(LLM_SERVICE) private readonly llm: LlmService,
   ) {}
 
@@ -47,10 +50,28 @@ export class LabellingService {
       return;
     }
 
-    const analysis = await this.llm.analyzeArticle({
-      title: article.title ?? '',
-      content: article.content ?? '',
-    });
+    // One provider call per *distinct content* (FR-10), not per Article: an
+    // unchanged Article under the same model + prompt_version reuses a prior
+    // analysis. On a miss we call the provider and memoise only the validated
+    // result — a throw (outage or validation failure) writes nothing below.
+    const contentHash = article.content_hash ?? '';
+    const cacheKey = llmCacheKey(contentHash, this.llm.model, PROMPT_VERSION);
+    let analysis = await this.llmCacheRepo.find(cacheKey);
+    if (analysis) {
+      this.logger.log(`label-article cache=hit articleId=${articleId}`);
+    } else {
+      analysis = await this.llm.analyzeArticle({
+        title: article.title ?? '',
+        content: article.content ?? '',
+      });
+      await this.llmCacheRepo.insert({
+        cacheKey,
+        contentHash,
+        model: this.llm.model,
+        promptVersion: PROMPT_VERSION,
+        resultJson: analysis,
+      });
+    }
 
     const userId = article.feed_id
       ? await this.feedsRepo.findUserId(article.feed_id)

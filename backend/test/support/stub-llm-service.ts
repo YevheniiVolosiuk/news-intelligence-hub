@@ -19,7 +19,7 @@ export class StubLlmService implements LlmService {
     this.results.set(content, result);
   }
 
-  failWith(error: Error): void {
+  failWith(error: Error | undefined): void {
     this.error = error;
   }
 
