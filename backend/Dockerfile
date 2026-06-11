@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
-# News Intelligence Hub - backend image (NestJS API, BullMQ worker, Bull Board).
-# One image, three entrypoints selected via the compose `command:`.
+# News Intelligence Hub - backend image (NestJS API, BullMQ workers, Bull Board).
+# One image, four entrypoints selected via the compose `command:`: the API
+# (dist/main.js), the feed-pull worker (dist/worker-pull.js), the article-label
+# worker (dist/worker-label.js), and Bull Board (dist/bull-board.js). See ADR-0004
+# for why pull and label run as separate services.
 
 # --- Dependencies (production only) ---
 FROM node:24-alpine AS deps

@@ -16,8 +16,10 @@
     "migrate": "NODE_OPTIONS='--import tsx/esm' node-pg-migrate --migrations-dir src/infra/database/migrations up",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug 0.0.0.0:9229 --watch",
-    "worker": "node dist/worker.js",
-    "worker:dev": "nodemon --quiet --watch src --ext ts --exec \"ts-node src/worker.ts\"",
+    "worker:pull": "node dist/worker-pull.js",
+    "worker:pull:dev": "nodemon --quiet --watch src --ext ts --exec \"ts-node src/worker-pull.ts\"",
+    "worker:label": "node dist/worker-label.js",
+    "worker:label:dev": "nodemon --quiet --watch src --ext ts --exec \"ts-node src/worker-label.ts\"",
     "board": "node dist/bull-board.js",
     "board:dev": "nodemon --quiet --watch src --ext ts --exec \"ts-node src/bull-board.ts\"",
     "seed:demo": "tsx src/infra/database/seed-demo.ts"
@@ -64,6 +66,7 @@
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.4",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "yaml": "^2.9.0"
   }
 }
