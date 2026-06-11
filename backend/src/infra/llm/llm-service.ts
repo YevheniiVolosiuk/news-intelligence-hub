@@ -1,4 +1,4 @@
-import {zodToJsonSchema} from 'zod-to-json-schema';
+import {z} from 'zod';
 import {articleAnalysisSchema, ArticleAnalysisResult} from './article-analysis';
 
 /**
@@ -32,10 +32,16 @@ export const PROMPT_VERSION = 'v1';
 /**
  * The providers' structured-output JSON schema, derived from the one zod schema
  * rather than hand-written. OpenAI consumes it as `response_format.json_schema`
- * and Anthropic as a forced tool's `input_schema`; `zod-to-json-schema` already
- * emits `additionalProperties: false` with every field required, which is what
- * OpenAI strict mode demands.
+ * and Anthropic as a forced tool's `input_schema`; zod v4's native
+ * `z.toJSONSchema` already emits `additionalProperties: false` with every field
+ * required, which is what OpenAI strict mode demands. The `$schema` dialect key
+ * is dropped so the body carries only the structure the providers read.
  */
-export const analysisJsonSchema = zodToJsonSchema(articleAnalysisSchema, {
-  $refStrategy: 'none',
-});
+export const analysisJsonSchema = (() => {
+  const schema = z.toJSONSchema(articleAnalysisSchema) as Record<
+    string,
+    unknown
+  >;
+  delete schema.$schema;
+  return schema;
+})();
