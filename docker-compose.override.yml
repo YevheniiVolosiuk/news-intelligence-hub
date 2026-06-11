@@ -18,10 +18,21 @@ services:
       - "${BACKEND_HOST_PORT:-3001}:3000"  # API:        http://localhost:3001/health
       - "9229:9229"                        # Node debugger (inspector)
 
-  worker:
+  worker-pull:
     build:
       target: development
-    command: ["npm", "run", "worker:dev"]
+    command: ["npm", "run", "worker:pull:dev"]
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+
+  worker-label:
+    build:
+      target: development
+    command: ["npm", "run", "worker:label:dev"]
     volumes:
       - ./backend:/app
       - /app/node_modules

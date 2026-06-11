@@ -72,9 +72,36 @@ services:
       - frontend
       - backend
 
-  worker:
+  # Feed-pull worker (ADR-0004): drains the feed-pull queue at
+  # WORKER_CONCURRENCY. Horizontally scalable — it holds no global cap.
+  worker-pull:
     <<: *backend-build
-    command: ["node", "dist/worker.js"]
+    command: ["node", "dist/worker-pull.js"]
+    env_file: .env
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - frontend
+      - backend
+
+  # Article-label worker (ADR-0004): drains the article-label queue at
+  # concurrency = LLM_CONCURRENCY and hosts the operator /redrain endpoint.
+  # Must run as a single replica (see docker-compose.prod.yml) so LLM_CONCURRENCY
+  # is an exact global cap on in-flight LLM calls.
+  worker-label:
+    <<: *backend-build
+    command: ["node", "dist/worker-label.js"]
     env_file: .env
     environment:
       <<: *app-env
