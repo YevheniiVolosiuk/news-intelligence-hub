@@ -42,8 +42,8 @@ export class LlmCacheRepository {
    * Memoise a validated analysis. `ON CONFLICT (cache_key) DO NOTHING` keeps the
    * write idempotent: two Articles with identical content labelled concurrently
    * race to insert the same key, and the loser is a harmless no-op rather than an
-   * error. Token columns are left null — the `LlmService` seam does not surface
-   * usage counts (telemetry is a later slice).
+   * error. Token columns are left null: usage belongs on the `llm_telemetry`
+   * ledger (one row per outcome), not on the deduplicated cache row.
    */
   async insert(params: InsertLlmCacheParams): Promise<void> {
     await this.pool.query(

@@ -270,6 +270,110 @@ describe('LabellingService.labelArticle (integration)', () => {
     expect(rows[0].entities).toEqual([{name: 'Initech', type: 'company'}]);
   });
 
+  it('records one telemetry row for a real provider call (cache miss)', async () => {
+    const content = 'Cold content whose provider call must be accounted for.';
+    const {userId, articleId} = await insertPendingArticle(content);
+    llm.set(
+      content,
+      {summary: 'Counted.', importance: 'normal', entities: []},
+      {promptTokens: 120, completionTokens: 30, totalTokens: 150},
+    );
+
+    await labelling.labelArticle(articleId);
+
+    const {rows} = await pool.query(
+      `SELECT operation, provider, model, prompt_tokens, completion_tokens,
+              total_tokens, cache_hit, outcome, article_id, user_id, latency_ms
+         FROM llm_telemetry WHERE article_id = $1`,
+      [articleId],
+    );
+    expect(rows).toHaveLength(1);
+    const row = rows[0];
+    expect(row.operation).toBe('processing');
+    expect(row.provider).toBe('stub');
+    expect(row.model).toBe('stub-model');
+    expect(row.cache_hit).toBe(false);
+    expect(row.prompt_tokens).toBe(120);
+    expect(row.completion_tokens).toBe(30);
+    expect(row.total_tokens).toBe(150);
+    expect(row.outcome).toBe('ok');
+    expect(row.user_id).toBe(userId);
+    expect(Number.isInteger(row.latency_ms)).toBe(true);
+    expect(row.latency_ms).toBeGreaterThanOrEqual(0);
+  });
+
+  it('records a zero-token cache_hit row when the cache serves a labelling', async () => {
+    const content = 'Shared body whose second labelling is a cache hit.';
+    const result = {
+      summary: 'Served from cache.',
+      importance: 'normal' as const,
+      entities: [],
+    };
+
+    // First Article: cold miss warms the cache (its own call-row is asserted
+    // elsewhere). Second Article with the same content is the hit under test.
+    const first = await insertPendingArticle(content);
+    llm.set(content, result, {
+      promptTokens: 80,
+      completionTokens: 20,
+      totalTokens: 100,
+    });
+    await labelling.labelArticle(first.articleId);
+
+    const second = await insertPendingArticle(content);
+    await labelling.labelArticle(second.articleId);
+
+    const {rows} = await pool.query(
+      `SELECT cache_hit, prompt_tokens, completion_tokens, total_tokens,
+              operation, article_id, user_id
+         FROM llm_telemetry WHERE article_id = $1`,
+      [second.articleId],
+    );
+    expect(rows).toHaveLength(1);
+    const row = rows[0];
+    expect(row.cache_hit).toBe(true);
+    expect(row.prompt_tokens).toBe(0);
+    expect(row.completion_tokens).toBe(0);
+    expect(row.total_tokens).toBe(0);
+    expect(row.operation).toBe('processing');
+    expect(row.article_id).toBe(second.articleId);
+    expect(row.user_id).toBe(second.userId);
+  });
+
+  it('makes calls / spend / calls-saved computable across a call-row and a hit-row', async () => {
+    const content = 'One body, two labellings: one real call and one hit.';
+    const result = {
+      summary: 'Accounted once, saved once.',
+      importance: 'important' as const,
+      entities: [{name: 'Hooli', type: 'company' as const}],
+    };
+    llm.set(content, result, {
+      promptTokens: 200,
+      completionTokens: 50,
+      totalTokens: 250,
+    });
+
+    // Two distinct Articles carrying identical content: the first is a cold
+    // miss (a real provider call), the second a cache hit.
+    const first = await insertPendingArticle(content);
+    await labelling.labelArticle(first.articleId);
+    const second = await insertPendingArticle(content);
+    await labelling.labelArticle(second.articleId);
+
+    // The two outcomes are two ledger rows attributable to this content.
+    const {rows} = await pool.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE NOT cache_hit)::int       AS real_calls,
+         COALESCE(SUM(total_tokens), 0)::int              AS spend,
+         COUNT(*) FILTER (WHERE cache_hit)::int           AS calls_saved
+       FROM llm_telemetry WHERE article_id = ANY($1)`,
+      [[first.articleId, second.articleId]],
+    );
+    expect(rows[0].real_calls).toBe(1);
+    expect(rows[0].spend).toBe(250);
+    expect(rows[0].calls_saved).toBe(1);
+  });
+
   it('writes no cache row when the provider call fails', async () => {
     const content = 'Body whose analysis fails and must not be memoised.';
     const {articleId} = await insertPendingArticle(content);

@@ -2,6 +2,7 @@ import {Module} from '@nestjs/common';
 import {LabellingService} from './labelling.service';
 import {LabellingsRepository} from './labellings.repository';
 import {LlmCacheRepository} from './llm-cache.repository';
+import {LlmTelemetryRepository} from './llm-telemetry.repository';
 import {FeedsModule} from '../feeds/feeds.module';
 import {IngestionModule} from '../ingestion/ingestion.module';
 import {LlmModule} from '../../infra/llm/llm.module';
@@ -13,7 +14,12 @@ import {LlmModule} from '../../infra/llm/llm.module';
  */
 @Module({
   imports: [FeedsModule, IngestionModule, LlmModule],
-  providers: [LabellingService, LabellingsRepository, LlmCacheRepository],
+  providers: [
+    LabellingService,
+    LabellingsRepository,
+    LlmCacheRepository,
+    LlmTelemetryRepository,
+  ],
   exports: [LabellingService],
 })
 export class LabellingModule {}
