@@ -2,7 +2,7 @@ import {Injectable, Logger, OnModuleDestroy} from '@nestjs/common';
 import {Queue} from 'bullmq';
 import {redisConnectionOptions} from '../cache/redis';
 import {ArticleLabelProducer} from './article-label-producer';
-import {QUEUE_ARTICLE_LABEL} from './queues';
+import {ARTICLE_LABEL_JOB_OPTS, QUEUE_ARTICLE_LABEL} from './queues';
 
 /**
  * BullMQ-backed producer that owns the producing side of the `article-label`
@@ -20,7 +20,14 @@ export class BullArticleLabelProducer
   });
 
   async enqueueLabel(articleId: string): Promise<void> {
-    const job = await this.queue.add('label', {articleId});
+    // Retry on provider outage with exponential backoff; on exhaustion the
+    // labelling flow defers the Article to `awaiting` (Slice 4.6). A validation
+    // failure fast-fails inside the flow without consuming these attempts.
+    const job = await this.queue.add(
+      'label',
+      {articleId},
+      ARTICLE_LABEL_JOB_OPTS,
+    );
     this.logger.log(
       `enqueue-label outcome=enqueued queue=${QUEUE_ARTICLE_LABEL} jobId=${job.id} articleId=${articleId}`,
     );
