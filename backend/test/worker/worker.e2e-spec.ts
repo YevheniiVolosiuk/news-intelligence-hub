@@ -6,10 +6,14 @@ import {
 } from '@testcontainers/postgresql';
 import {FEED_FETCHER} from '../../src/modules/ingestion/feed-fetcher';
 import {FEED_PULL_PRODUCER} from '../../src/infra/queues/feed-pull-producer';
+import {ARTICLE_LABEL_PRODUCER} from '../../src/infra/queues/article-label-producer';
+import {LLM_SERVICE} from '../../src/infra/llm/llm-service';
 import {CLOCK} from '../../src/common/utils/clock';
 import {IngestionService} from '../../src/modules/ingestion/ingestion.service';
 import {StubFeedFetcher} from '../support/stub-feed-fetcher';
 import {StubFeedPullProducer} from '../support/stub-feed-pull-producer';
+import {StubArticleLabelProducer} from '../support/stub-article-label-producer';
+import {StubLlmService} from '../support/stub-llm-service';
 import {runMigrations} from '../../src/infra/database/migrate';
 import {WorkerModule} from '../../src/worker.module';
 
@@ -35,6 +39,10 @@ describe('Worker (integration)', () => {
       .useValue(feedFetcher)
       .overrideProvider(FEED_PULL_PRODUCER)
       .useValue(new StubFeedPullProducer())
+      .overrideProvider(ARTICLE_LABEL_PRODUCER)
+      .useValue(new StubArticleLabelProducer())
+      .overrideProvider(LLM_SERVICE)
+      .useValue(new StubLlmService())
       .overrideProvider(CLOCK)
       .useFactory({factory: () => () => new Date()})
       .compile();
@@ -111,7 +119,7 @@ describe('Worker (integration)', () => {
 
     // Article landed in the DB
     const {rows: articles} = await pool.query(
-      `SELECT * FROM articles WHERE feed_id = $1`,
+      'SELECT * FROM articles WHERE feed_id = $1',
       [feedId],
     );
     expect(articles).toHaveLength(1);
@@ -120,14 +128,14 @@ describe('Worker (integration)', () => {
 
     // Source was created
     const {rows: sources} = await pool.query(
-      `SELECT * FROM sources WHERE normalised_host = 'worker.example.com'`,
+      "SELECT * FROM sources WHERE normalised_host = 'worker.example.com'",
     );
     expect(sources).toHaveLength(1);
     expect(sources[0].title).toBe('Worker Source');
 
     // Feed stays active with last_pulled_at set
     const {rows: feeds} = await pool.query(
-      `SELECT status, last_pulled_at FROM feeds WHERE id = $1`,
+      'SELECT status, last_pulled_at FROM feeds WHERE id = $1',
       [feedId],
     );
     expect(feeds[0].status).toBe('active');
@@ -145,7 +153,7 @@ describe('Worker (integration)', () => {
     expect(summary).toEqual({pulled: 0, inserted: 0, filtered: 0, skipped: 0});
 
     const {rows: feeds} = await pool.query(
-      `SELECT status, last_error FROM feeds WHERE id = $1`,
+      'SELECT status, last_error FROM feeds WHERE id = $1',
       [feedId],
     );
     expect(feeds[0].status).toBe('error');

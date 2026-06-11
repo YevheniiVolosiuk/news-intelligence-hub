@@ -39,7 +39,9 @@ export class ArticlesRepository {
    * Insert an article unless one with the same normalised_url already exists.
    * Returns the inserted row, or null if skipped (duplicate).
    */
-  async createIfNotExists(params: CreateArticleParams): Promise<ArticleRow | null> {
+  async createIfNotExists(
+    params: CreateArticleParams,
+  ): Promise<ArticleRow | null> {
     const {rows} = await this.pool.query<ArticleRow>(
       `INSERT INTO articles (
          source_id, feed_id, url, normalised_url, content_hash,
@@ -61,5 +63,28 @@ export class ArticlesRepository {
       ],
     );
     return rows[0] ?? null;
+  }
+
+  /**
+   * Fetch a single Article by primary key (system-level, no tenant scoping) —
+   * the label worker operates outside any user context. Returns null when the
+   * id is unknown.
+   */
+  async findById(articleId: string): Promise<ArticleRow | null> {
+    const {rows} = await this.pool.query<ArticleRow>(
+      'SELECT * FROM articles WHERE id = $1',
+      [articleId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /** Move an Article to the `processed` terminal once it has been labelled. */
+  async markProcessed(articleId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE articles
+          SET processing_state = 'processed', updated_at = now()
+        WHERE id = $1`,
+      [articleId],
+    );
   }
 }

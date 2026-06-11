@@ -13,11 +13,13 @@ import {FEED_VALIDATOR} from '../../src/modules/feeds/feed-validator';
 import {FEED_FETCHER} from '../../src/modules/ingestion/feed-fetcher';
 import {FEED_PULL_PRODUCER} from '../../src/infra/queues/feed-pull-producer';
 import {FEED_PULL_SCHEDULER} from '../../src/infra/queues/feed-pull-scheduler';
+import {ARTICLE_LABEL_PRODUCER} from '../../src/infra/queues/article-label-producer';
 import {runMigrations} from '../../src/infra/database/migrate';
 import {CapturingConfirmationLinkNotifier} from './capturing-notifier';
 import {StubFeedValidator} from './stub-feed-validator';
 import {StubFeedFetcher} from './stub-feed-fetcher';
 import {StubFeedPullProducer} from './stub-feed-pull-producer';
+import {StubArticleLabelProducer} from './stub-article-label-producer';
 import {RecordingFeedPullScheduler} from './recording-feed-pull-scheduler';
 
 export interface E2EHarness {
@@ -30,6 +32,8 @@ export interface E2EHarness {
   feedFetcher: StubFeedFetcher;
   /** Capturing FeedPullProducer double; records every enqueued feed id. */
   feedPullProducer: StubFeedPullProducer;
+  /** Capturing ArticleLabelProducer double; records every enqueued article id. */
+  articleLabelProducer: StubArticleLabelProducer;
   /** Recording FeedPullScheduler double; tracks the live set of scheduled feeds. */
   feedPullScheduler: RecordingFeedPullScheduler;
   /** Mutate this to control what the clock returns during the test. */
@@ -62,6 +66,7 @@ export async function startE2EHarness(): Promise<E2EHarness> {
   const feedValidator = new StubFeedValidator();
   const feedFetcher = new StubFeedFetcher();
   const feedPullProducer = new StubFeedPullProducer();
+  const articleLabelProducer = new StubArticleLabelProducer();
   const feedPullScheduler = new RecordingFeedPullScheduler();
   const clockState = {now: () => new Date()};
   const moduleRef = await Test.createTestingModule({imports: [AppModule]})
@@ -73,6 +78,8 @@ export async function startE2EHarness(): Promise<E2EHarness> {
     .useValue(feedFetcher)
     .overrideProvider(FEED_PULL_PRODUCER)
     .useValue(feedPullProducer)
+    .overrideProvider(ARTICLE_LABEL_PRODUCER)
+    .useValue(articleLabelProducer)
     .overrideProvider(FEED_PULL_SCHEDULER)
     .useValue(feedPullScheduler)
     .overrideProvider(CLOCK)
@@ -93,6 +100,7 @@ export async function startE2EHarness(): Promise<E2EHarness> {
     feedValidator,
     feedFetcher,
     feedPullProducer,
+    articleLabelProducer,
     feedPullScheduler,
     clock: clockState,
     close: async () => {

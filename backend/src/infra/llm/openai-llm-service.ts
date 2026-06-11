@@ -25,7 +25,7 @@ export class OpenAiLlmService implements LlmService {
   private readonly logger = new Logger(OpenAiLlmService.name);
   private readonly post: LlmHttpPost;
   private readonly apiKey: string;
-  private readonly model: string;
+  readonly model: string;
   private readonly maxTokens: number;
   private readonly timeoutMs: number;
 

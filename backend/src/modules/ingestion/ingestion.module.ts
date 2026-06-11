@@ -5,6 +5,8 @@ import {IngestionService} from './ingestion.service';
 import {SourcesRepository} from './sources.repository';
 import {ArticlesRepository} from './articles.repository';
 import {FeedsModule} from '../feeds/feeds.module';
+import {ARTICLE_LABEL_PRODUCER} from '../../infra/queues/article-label-producer';
+import {BullArticleLabelProducer} from '../../infra/queues/bull-article-label-producer';
 
 /**
  * Owns the ingestion pipeline: fetch → parse → pre-filter → store.
@@ -18,7 +20,8 @@ import {FeedsModule} from '../feeds/feeds.module';
     SourcesRepository,
     ArticlesRepository,
     {provide: FEED_FETCHER, useFactory: () => new HttpFeedFetcher()},
+    {provide: ARTICLE_LABEL_PRODUCER, useClass: BullArticleLabelProducer},
   ],
-  exports: [IngestionService],
+  exports: [IngestionService, ArticlesRepository],
 })
 export class IngestionModule {}

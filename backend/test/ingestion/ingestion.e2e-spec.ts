@@ -39,7 +39,10 @@ describe('IngestionService.pullFeed (integration)', () => {
 
   it('pulls a feed and stores articles + source in the database', async () => {
     const url = 'https://example.com/feed.xml';
-    const {feedId} = await insertActiveFeed(url, 'https://example.com/feed.xml');
+    const {feedId} = await insertActiveFeed(
+      url,
+      'https://example.com/feed.xml',
+    );
 
     // Wire the stub fetcher to return RSS XML for this URL
     harness.feedFetcher.set(url, {
@@ -72,14 +75,14 @@ describe('IngestionService.pullFeed (integration)', () => {
 
     // Source was created
     const {rows: sources} = await pool.query(
-      `SELECT * FROM sources WHERE normalised_host = 'example.com'`,
+      "SELECT * FROM sources WHERE normalised_host = 'example.com'",
     );
     expect(sources).toHaveLength(1);
     expect(sources[0].title).toBe('Tech Source');
 
     // Article was created with correct fields
     const {rows: articles} = await pool.query(
-      `SELECT * FROM articles WHERE feed_id = $1`,
+      'SELECT * FROM articles WHERE feed_id = $1',
       [feedId],
     );
     expect(articles).toHaveLength(1);
@@ -95,7 +98,7 @@ describe('IngestionService.pullFeed (integration)', () => {
 
     // Feed status stays active with last_pulled_at set
     const {rows: feeds} = await pool.query(
-      `SELECT status, last_pulled_at, last_error FROM feeds WHERE id = $1`,
+      'SELECT status, last_pulled_at, last_error FROM feeds WHERE id = $1',
       [feedId],
     );
     expect(feeds[0].status).toBe('active');
@@ -103,11 +106,58 @@ describe('IngestionService.pullFeed (integration)', () => {
     expect(feeds[0].last_error).toBeNull();
   });
 
+  // ── Enqueues a label job per pending Article ─────────────────────
+
+  it('enqueues one article-label job carrying the id of each pending Article', async () => {
+    harness.articleLabelProducer.clear();
+    const url = 'https://label-enqueue.example.com/feed.xml';
+    const {feedId} = await insertActiveFeed(url, url);
+
+    harness.feedFetcher.set(url, {
+      ok: true,
+      contentType: 'application/xml',
+      body: `<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Label Enqueue Source</title>
+    <link>https://label-enqueue.example.com</link>
+    <item>
+      <title>Pending Article</title>
+      <link>https://label-enqueue.example.com/pending</link>
+      <description>A substantial article with more than enough body text to comfortably clear the pre-filter length threshold and land as a healthy pending article that ingestion is expected to enqueue exactly once for labelling downstream in the intelligence pipeline.</description>
+    </item>
+    <item>
+      <title>Tiny</title>
+      <link>https://label-enqueue.example.com/tiny</link>
+      <description>Too short.</description>
+    </item>
+  </channel>
+</rss>`,
+    });
+
+    const ingestionService = harness.app.get(IngestionService);
+    const result = await ingestionService.pullFeed(feedId);
+    expect(result).toEqual({pulled: 2, inserted: 1, filtered: 1, skipped: 0});
+
+    // The pending Article's id, and only it, was enqueued.
+    const {
+      rows: [pending],
+    } = await pool.query(
+      `SELECT id FROM articles
+        WHERE feed_id = $1 AND processing_state = 'pending'`,
+      [feedId],
+    );
+    expect(harness.articleLabelProducer.enqueued).toEqual([pending.id]);
+  });
+
   // ── Idempotent pull ──────────────────────────────────────────────
 
   it('re-pulling the same feed skips already-seen articles', async () => {
     const url = 'https://idem.example.com/feed.xml';
-    const {feedId} = await insertActiveFeed(url, 'https://idem.example.com/feed.xml');
+    const {feedId} = await insertActiveFeed(
+      url,
+      'https://idem.example.com/feed.xml',
+    );
 
     const rss = `<?xml version="1.0"?>
 <rss version="2.0">
@@ -122,7 +172,11 @@ describe('IngestionService.pullFeed (integration)', () => {
   </channel>
 </rss>`;
 
-    harness.feedFetcher.set(url, {ok: true, contentType: 'application/xml', body: rss});
+    harness.feedFetcher.set(url, {
+      ok: true,
+      contentType: 'application/xml',
+      body: rss,
+    });
 
     const ingestionService = harness.app.get(IngestionService);
 
@@ -139,7 +193,7 @@ describe('IngestionService.pullFeed (integration)', () => {
 
     // Still only one article row
     const {rows} = await pool.query(
-      `SELECT COUNT(*)::int AS cnt FROM articles WHERE feed_id = $1`,
+      'SELECT COUNT(*)::int AS cnt FROM articles WHERE feed_id = $1',
       [feedId],
     );
     expect(rows[0].cnt).toBe(1);
@@ -149,7 +203,10 @@ describe('IngestionService.pullFeed (integration)', () => {
 
   it('routes short items to filtered state with a reason', async () => {
     const url = 'https://filter.example.com/feed.xml';
-    const {feedId} = await insertActiveFeed(url, 'https://filter.example.com/feed.xml');
+    const {feedId} = await insertActiveFeed(
+      url,
+      'https://filter.example.com/feed.xml',
+    );
 
     const rss = `<?xml version="1.0"?>
 <rss version="2.0">
@@ -164,7 +221,11 @@ describe('IngestionService.pullFeed (integration)', () => {
   </channel>
 </rss>`;
 
-    harness.feedFetcher.set(url, {ok: true, contentType: 'application/xml', body: rss});
+    harness.feedFetcher.set(url, {
+      ok: true,
+      contentType: 'application/xml',
+      body: rss,
+    });
 
     const ingestionService = harness.app.get(IngestionService);
     const result = await ingestionService.pullFeed(feedId);
@@ -173,7 +234,7 @@ describe('IngestionService.pullFeed (integration)', () => {
     expect(result.inserted).toBe(0);
 
     const {rows: articles} = await pool.query(
-      `SELECT processing_state, filtered_reason FROM articles WHERE feed_id = $1`,
+      'SELECT processing_state, filtered_reason FROM articles WHERE feed_id = $1',
       [feedId],
     );
     expect(articles).toHaveLength(1);
@@ -198,10 +259,20 @@ describe('IngestionService.pullFeed (integration)', () => {
 </rss>`;
 
     const url = 'https://shared.example.com/feed.xml';
-    const feed1 = await insertActiveFeed(url, 'https://shared.example.com/feed.xml');
-    const feed2 = await insertActiveFeed(url, 'https://shared.example.com/feed.xml');
+    const feed1 = await insertActiveFeed(
+      url,
+      'https://shared.example.com/feed.xml',
+    );
+    const feed2 = await insertActiveFeed(
+      url,
+      'https://shared.example.com/feed.xml',
+    );
 
-    harness.feedFetcher.set(url, {ok: true, contentType: 'application/xml', body: rss});
+    harness.feedFetcher.set(url, {
+      ok: true,
+      contentType: 'application/xml',
+      body: rss,
+    });
 
     const ingestionService = harness.app.get(IngestionService);
 
@@ -210,13 +281,13 @@ describe('IngestionService.pullFeed (integration)', () => {
 
     // One shared source
     const {rows: sources} = await pool.query(
-      `SELECT COUNT(*)::int AS cnt FROM sources WHERE normalised_host = 'shared.example.com'`,
+      "SELECT COUNT(*)::int AS cnt FROM sources WHERE normalised_host = 'shared.example.com'",
     );
     expect(sources[0].cnt).toBe(1);
 
     // One shared article (by normalised_url)
     const {rows: articles} = await pool.query(
-      `SELECT COUNT(*)::int AS cnt FROM articles WHERE normalised_url = 'https://shared.example.com/post'`,
+      "SELECT COUNT(*)::int AS cnt FROM articles WHERE normalised_url = 'https://shared.example.com/post'",
     );
     expect(articles[0].cnt).toBe(1);
   });
@@ -225,7 +296,10 @@ describe('IngestionService.pullFeed (integration)', () => {
 
   it('sets feed to error + last_error on fetch failure and creates no articles', async () => {
     const url = 'https://down.example.com/feed.xml';
-    const {feedId} = await insertActiveFeed(url, 'https://down.example.com/feed.xml');
+    const {feedId} = await insertActiveFeed(
+      url,
+      'https://down.example.com/feed.xml',
+    );
 
     harness.feedFetcher.set(url, {ok: false, reason: 'unreachable'});
 
@@ -235,7 +309,7 @@ describe('IngestionService.pullFeed (integration)', () => {
     expect(result).toEqual({pulled: 0, inserted: 0, filtered: 0, skipped: 0});
 
     const {rows: feeds} = await pool.query(
-      `SELECT status, last_error, last_pulled_at FROM feeds WHERE id = $1`,
+      'SELECT status, last_error, last_pulled_at FROM feeds WHERE id = $1',
       [feedId],
     );
     expect(feeds[0].status).toBe('error');
@@ -244,7 +318,7 @@ describe('IngestionService.pullFeed (integration)', () => {
 
     // No articles created
     const {rows: articles} = await pool.query(
-      `SELECT COUNT(*)::int AS cnt FROM articles WHERE feed_id = $1`,
+      'SELECT COUNT(*)::int AS cnt FROM articles WHERE feed_id = $1',
       [feedId],
     );
     expect(articles[0].cnt).toBe(0);
@@ -254,7 +328,10 @@ describe('IngestionService.pullFeed (integration)', () => {
 
   it('sets feed to error on parse failure (non-feed HTML)', async () => {
     const url = 'https://html.example.com/feed.xml';
-    const {feedId} = await insertActiveFeed(url, 'https://html.example.com/feed.xml');
+    const {feedId} = await insertActiveFeed(
+      url,
+      'https://html.example.com/feed.xml',
+    );
 
     harness.feedFetcher.set(url, {
       ok: true,
@@ -268,7 +345,7 @@ describe('IngestionService.pullFeed (integration)', () => {
     expect(result).toEqual({pulled: 0, inserted: 0, filtered: 0, skipped: 0});
 
     const {rows: feeds} = await pool.query(
-      `SELECT status, last_error FROM feeds WHERE id = $1`,
+      'SELECT status, last_error FROM feeds WHERE id = $1',
       [feedId],
     );
     expect(feeds[0].status).toBe('error');
@@ -279,7 +356,10 @@ describe('IngestionService.pullFeed (integration)', () => {
 
   it('recovers an error feed to active on next successful pull', async () => {
     const url = 'https://recover.example.com/feed.xml';
-    const {feedId} = await insertActiveFeed(url, 'https://recover.example.com/feed.xml');
+    const {feedId} = await insertActiveFeed(
+      url,
+      'https://recover.example.com/feed.xml',
+    );
 
     // First pull — fails
     harness.feedFetcher.set(url, {ok: false, reason: 'unreachable'});
@@ -287,7 +367,7 @@ describe('IngestionService.pullFeed (integration)', () => {
     await ingestionService.pullFeed(feedId);
 
     const {rows: afterError} = await pool.query(
-      `SELECT status, last_error FROM feeds WHERE id = $1`,
+      'SELECT status, last_error FROM feeds WHERE id = $1',
       [feedId],
     );
     expect(afterError[0].status).toBe('error');
@@ -314,7 +394,7 @@ describe('IngestionService.pullFeed (integration)', () => {
     expect(result.inserted).toBe(1);
 
     const {rows: feeds} = await pool.query(
-      `SELECT status, last_pulled_at, last_error FROM feeds WHERE id = $1`,
+      'SELECT status, last_pulled_at, last_error FROM feeds WHERE id = $1',
       [feedId],
     );
     expect(feeds[0].status).toBe('active');
@@ -326,18 +406,21 @@ describe('IngestionService.pullFeed (integration)', () => {
 
   it('returns zeros when pulling a paused feed', async () => {
     const url = 'https://paused.example.com/feed.xml';
-    const {userId, feedId} = await insertActiveFeed(url, 'https://paused.example.com/feed.xml');
+    const {userId, feedId} = await insertActiveFeed(
+      url,
+      'https://paused.example.com/feed.xml',
+    );
 
     // Pause the feed
     await pool.query(
-      `UPDATE feeds SET status = 'paused' WHERE id = $1 AND user_id = $2`,
+      "UPDATE feeds SET status = 'paused' WHERE id = $1 AND user_id = $2",
       [feedId, userId],
     );
 
     harness.feedFetcher.set(url, {
       ok: true,
       contentType: 'application/xml',
-      body: `<?xml version="1.0"?><rss version="2.0"><channel><title>X</title></channel></rss>`,
+      body: '<?xml version="1.0"?><rss version="2.0"><channel><title>X</title></channel></rss>',
     });
 
     const ingestionService = harness.app.get(IngestionService);

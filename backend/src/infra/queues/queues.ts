@@ -3,5 +3,9 @@
  * queue names has a single source of truth. New slices add their queues here.
  */
 export const QUEUE_FEED_PULL = 'feed-pull';
+export const QUEUE_ARTICLE_LABEL = 'article-label';
 
-export const ALL_QUEUES: readonly string[] = [QUEUE_FEED_PULL];
+export const ALL_QUEUES: readonly string[] = [
+  QUEUE_FEED_PULL,
+  QUEUE_ARTICLE_LABEL,
+];

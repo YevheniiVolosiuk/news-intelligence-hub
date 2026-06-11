@@ -35,10 +35,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(Must)** gate · **(S
 - [x] **Slice 2 — Feed CRUD + status** **(Must)** · §9.4 step 7
       Add Feed by URL, validate RSS/Atom + reachability, pause/resume/delete, show status.
       Delete detaches Articles, does not remove them.
-- [~] **Slice 3 — Ingestion + Pre-Filter** **(Must)** · §9.4 step 8
+- [x] **Slice 3 — Ingestion + Pre-Filter** **(Must)** · §9.4 step 8
       Feed-pull worker (scheduled + manual), RSS/Atom parse, URL normalisation, content hash,
       deterministic Pre-Filter (`filtered`/`pending`). Demo-data seed for review.
-- [ ] **Slice 4 — LLM abstraction + Labelling** **(Must)** · §9.4 step 9 · _grill first_
+- [~] **Slice 4 — LLM abstraction + Labelling** **(Must)** · §9.4 step 9 · _grill first_
       `LlmService` + OpenAI & Anthropic adapters (env switch), queue-only calls, structured/validated
       output, content-hash cache, one call per Article, Telemetry, `LLM_CONCURRENCY` + token limit.
 - [ ] **Slice 5 — Deduplication** **(Must)** · §9.4 step 9 · _grill first_

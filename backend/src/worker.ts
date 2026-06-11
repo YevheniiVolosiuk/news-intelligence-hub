@@ -3,12 +3,13 @@ import {Worker as BullWorker, Job} from 'bullmq';
 import {NestFactory} from '@nestjs/core';
 import {JsonLogger} from './common/logging/json-logger';
 import {redisConnectionOptions} from './infra/cache/redis';
-import {QUEUE_FEED_PULL} from './infra/queues/queues';
+import {QUEUE_ARTICLE_LABEL, QUEUE_FEED_PULL} from './infra/queues/queues';
 import {WorkerModule} from './worker.module';
 import {
   IngestionService,
   PullSummary,
 } from './modules/ingestion/ingestion.service';
+import {LabellingService} from './modules/labelling/labelling.service';
 
 const WORKER_CONTEXT = 'Worker';
 const logger = new JsonLogger();
@@ -35,6 +36,7 @@ async function bootstrap(): Promise<void> {
   });
   ctx.useLogger(logger);
   const ingestion = ctx.get(IngestionService);
+  const labelling = ctx.get(LabellingService);
 
   const connection = redisConnectionOptions();
   const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 5);
@@ -71,6 +73,36 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
+  // Second consumer: drain the article-label queue. Each job hands one ingested
+  // Article to the labelling flow, which reaches the LLM and persists a
+  // Labelling. Mirrors the feed-pull processor: job => labelArticle(articleId).
+  const labelWorker = new BullWorker<{articleId: string}, void>(
+    QUEUE_ARTICLE_LABEL,
+    async (job: Job) => {
+      const articleId: string = job.data.articleId;
+      await labelling.labelArticle(articleId);
+
+      log('info', 'job.completed', {
+        queue: QUEUE_ARTICLE_LABEL,
+        jobId: job.id,
+        articleId,
+      });
+    },
+    {connection, concurrency},
+  );
+
+  labelWorker.on('ready', () =>
+    log('info', 'worker.ready', {queue: QUEUE_ARTICLE_LABEL, concurrency}),
+  );
+  labelWorker.on('failed', (job, err) =>
+    log('error', 'job.failed', {
+      queue: QUEUE_ARTICLE_LABEL,
+      jobId: job?.id,
+      articleId: job?.data?.articleId,
+      error: err.message,
+    }),
+  );
+
   // Tiny HTTP endpoint so the container has a meaningful health check.
   const healthPort = Number(process.env.WORKER_HEALTH_PORT ?? 3000);
   const healthServer = createServer((req, res) => {
@@ -89,6 +121,7 @@ async function bootstrap(): Promise<void> {
   async function shutdown(signal: string): Promise<void> {
     log('info', 'worker.shutdown', {signal});
     await worker.close();
+    await labelWorker.close();
     await ctx.close();
     healthServer.close();
     process.exit(0);

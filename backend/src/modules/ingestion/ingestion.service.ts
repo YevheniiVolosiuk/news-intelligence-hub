@@ -7,6 +7,10 @@ import {parseFeed} from '../../common/utils/feed-parser';
 import {normaliseUrl} from '../../common/utils/url';
 import {computeContentHash} from '../../common/utils/content-hash';
 import {preFilter} from '../../common/utils/pre-filter';
+import {
+  ARTICLE_LABEL_PRODUCER,
+  ArticleLabelProducer,
+} from '../../infra/queues/article-label-producer';
 
 export interface PullSummary {
   pulled: number;
@@ -24,6 +28,8 @@ export class IngestionService {
     private readonly sourcesRepo: SourcesRepository,
     private readonly articlesRepo: ArticlesRepository,
     @Inject(FEED_FETCHER) private readonly fetcher: FeedFetcher,
+    @Inject(ARTICLE_LABEL_PRODUCER)
+    private readonly labelProducer: ArticleLabelProducer,
   ) {}
 
   /**
@@ -47,7 +53,10 @@ export class IngestionService {
     // Fetch
     const fetchResult = await this.fetcher.fetch(feed.url);
     if (!fetchResult.ok) {
-      await this.feedsRepo.updatePullError(feedId, `fetch: ${fetchResult.reason}`);
+      await this.feedsRepo.updatePullError(
+        feedId,
+        `fetch: ${fetchResult.reason}`,
+      );
       this.logger.log(
         `pull-feed outcome=fetch-error reason=${fetchResult.reason} feedId=${feedId}`,
       );
@@ -57,7 +66,10 @@ export class IngestionService {
     // Parse
     const parseResult = parseFeed(fetchResult.body);
     if (!parseResult.ok) {
-      await this.feedsRepo.updatePullError(feedId, `parse: ${parseResult.reason}`);
+      await this.feedsRepo.updatePullError(
+        feedId,
+        `parse: ${parseResult.reason}`,
+      );
       this.logger.log(
         `pull-feed outcome=parse-error reason=${parseResult.reason} feedId=${feedId}`,
       );
@@ -66,7 +78,10 @@ export class IngestionService {
 
     // Upsert source
     const host = new URL(feed.url).hostname.toLowerCase();
-    const source = await this.sourcesRepo.findOrCreate(host, parseResult.sourceTitle);
+    const source = await this.sourcesRepo.findOrCreate(
+      host,
+      parseResult.sourceTitle,
+    );
 
     // Process items
     const summary: PullSummary = {
@@ -79,7 +94,10 @@ export class IngestionService {
     for (const item of parseResult.items) {
       const itemUrl = item.link || '';
       const normalisedItemUrl = itemUrl ? normaliseUrl(itemUrl) : '';
-      const contentHash = computeContentHash(item.title ?? '', item.content ?? '');
+      const contentHash = computeContentHash(
+        item.title ?? '',
+        item.content ?? '',
+      );
 
       // Pre-filter
       const filterResult = preFilter({
@@ -87,7 +105,10 @@ export class IngestionService {
         content: item.content ?? '',
       });
 
-      const processingState = filterResult.state === 'pending' ? 'pending' as const : 'filtered' as const;
+      const processingState =
+        filterResult.state === 'pending'
+          ? ('pending' as const)
+          : ('filtered' as const);
       const filteredReason =
         filterResult.state === 'filtered' ? filterResult.reason : null;
 
@@ -108,7 +129,12 @@ export class IngestionService {
         if (processingState === 'filtered') {
           summary.filtered++;
         } else {
+          // A freshly-ingested pending Article is the unit of LLM work: enqueue
+          // exactly one label job carrying its id. The worker reaches the LLM;
+          // ingestion never labels inline (Principle 3). Filtered Articles are
+          // never enqueued — they bypass the LLM by definition.
           summary.inserted++;
+          await this.labelProducer.enqueueLabel(inserted.id);
         }
       } else {
         summary.skipped++;

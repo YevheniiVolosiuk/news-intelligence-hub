@@ -10,6 +10,13 @@ import {articleAnalysisSchema, ArticleAnalysisResult} from './article-analysis';
  * handler (Principle 3).
  */
 export interface LlmService {
+  /**
+   * The active model's identifier (e.g. `gpt-4o-mini`). The single source of
+   * truth for the `model` a Labelling was produced under, so the persisted row
+   * records what actually analysed the Article rather than a second, drifting
+   * copy of the provider's model resolution.
+   */
+  readonly model: string;
   analyzeArticle(input: AnalyzeArticleInput): Promise<ArticleAnalysisResult>;
 }
 

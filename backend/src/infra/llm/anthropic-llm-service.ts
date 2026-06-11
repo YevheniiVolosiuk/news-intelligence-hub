@@ -26,7 +26,7 @@ export class AnthropicLlmService implements LlmService {
   private readonly logger = new Logger(AnthropicLlmService.name);
   private readonly post: LlmHttpPost;
   private readonly apiKey: string;
-  private readonly model: string;
+  readonly model: string;
   private readonly maxTokens: number;
   private readonly timeoutMs: number;
 

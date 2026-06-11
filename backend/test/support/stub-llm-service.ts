@@ -12,6 +12,9 @@ export class StubLlmService implements LlmService {
   private error?: Error;
   callCount = 0;
 
+  /** Canned model identity, mirroring a real adapter's resolved `model`. */
+  readonly model = 'stub-model';
+
   set(content: string, result: ArticleAnalysisResult): void {
     this.results.set(content, result);
   }

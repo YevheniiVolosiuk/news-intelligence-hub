@@ -146,6 +146,19 @@ export class FeedsRepository {
     return rows.map(r => r.id);
   }
 
+  /**
+   * The id of the User who owns a Feed (system-level, no scoping). Used by the
+   * label worker to resolve an Article's owning User via `feed_id`. Returns null
+   * when the Feed is unknown.
+   */
+  async findUserId(feedId: string): Promise<string | null> {
+    const {rows} = await this.pool.query<{user_id: string}>(
+      'SELECT user_id FROM feeds WHERE id = $1',
+      [feedId],
+    );
+    return rows[0]?.user_id ?? null;
+  }
+
   /** Mark a feed as successfully pulled (active + timestamp). */
   async updatePullSuccess(feedId: string): Promise<void> {
     await this.pool.query(
