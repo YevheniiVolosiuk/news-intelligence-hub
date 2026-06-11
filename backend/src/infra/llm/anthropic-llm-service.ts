@@ -1,11 +1,13 @@
 import {Logger} from '@nestjs/common';
-import {ArticleAnalysisResult, parseAnalysisResult} from './article-analysis';
+import {parseAnalysisResult} from './article-analysis';
 import {fetchLlmHttpPost, LlmHttpPost, postWithTimeout} from './llm-http';
 import {
   analysisJsonSchema,
   AnalyzeArticleInput,
+  AnalyzeArticleResult,
   LlmService,
   PROMPT_VERSION,
+  TokenUsage,
 } from './llm-service';
 
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -26,6 +28,7 @@ export class AnthropicLlmService implements LlmService {
   private readonly logger = new Logger(AnthropicLlmService.name);
   private readonly post: LlmHttpPost;
   private readonly apiKey: string;
+  readonly provider = 'anthropic';
   readonly model: string;
   private readonly maxTokens: number;
   private readonly timeoutMs: number;
@@ -40,7 +43,7 @@ export class AnthropicLlmService implements LlmService {
 
   async analyzeArticle(
     input: AnalyzeArticleInput,
-  ): Promise<ArticleAnalysisResult> {
+  ): Promise<AnalyzeArticleResult> {
     const body = JSON.stringify({
       model: this.model,
       max_tokens: this.maxTokens,
@@ -81,14 +84,32 @@ export class AnthropicLlmService implements LlmService {
 
     const payload = (await res.json()) as {
       content?: {type: string; name?: string; input?: unknown}[];
+      usage?: {input_tokens?: number; output_tokens?: number};
     };
     const toolUse = payload.content?.find(
       block => block.type === 'tool_use' && block.name === TOOL_NAME,
     );
-    const result = parseAnalysisResult(toolUse?.input);
+    const analysis = parseAnalysisResult(toolUse?.input);
     this.logger.log(
       `analyzeArticle provider=anthropic outcome=ok prompt_version=${PROMPT_VERSION}`,
     );
-    return result;
+    return {analysis, usage: anthropicUsage(payload.usage)};
   }
+}
+
+/**
+ * Maps Anthropic's `input_tokens` / `output_tokens` to the seam's `TokenUsage`.
+ * Anthropic reports no combined total, so it is summed here.
+ */
+function anthropicUsage(usage?: {
+  input_tokens?: number;
+  output_tokens?: number;
+}): TokenUsage {
+  const promptTokens = usage?.input_tokens ?? 0;
+  const completionTokens = usage?.output_tokens ?? 0;
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+  };
 }

@@ -15,13 +15,43 @@ describe('StubLlmService', () => {
     entities: [{name: 'OpenAI', type: 'company'}],
   };
 
-  it('returns the canned result registered for the input content', async () => {
+  it('returns the canned analysis registered for the input content', async () => {
     const stub = new StubLlmService();
     stub.set('article body', result);
 
-    await expect(
-      stub.analyzeArticle({title: 'T', content: 'article body'}),
-    ).resolves.toEqual(result);
+    const {analysis} = await stub.analyzeArticle({
+      title: 'T',
+      content: 'article body',
+    });
+    expect(analysis).toEqual(result);
+  });
+
+  it('surfaces the registered token usage alongside the analysis', async () => {
+    const stub = new StubLlmService();
+    stub.set('body', result, {
+      promptTokens: 11,
+      completionTokens: 7,
+      totalTokens: 18,
+    });
+
+    const {usage} = await stub.analyzeArticle({title: 'T', content: 'body'});
+    expect(usage).toEqual({
+      promptTokens: 11,
+      completionTokens: 7,
+      totalTokens: 18,
+    });
+  });
+
+  it('defaults usage to zero when none is registered', async () => {
+    const stub = new StubLlmService();
+    stub.set('body', result);
+
+    const {usage} = await stub.analyzeArticle({title: 'T', content: 'body'});
+    expect(usage).toEqual({
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    });
   });
 
   it('counts every analyzeArticle call', async () => {

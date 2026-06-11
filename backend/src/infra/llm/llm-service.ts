@@ -11,19 +11,46 @@ import {articleAnalysisSchema, ArticleAnalysisResult} from './article-analysis';
  */
 export interface LlmService {
   /**
+   * The provider family (`openai` / `anthropic`), recorded verbatim on each
+   * telemetry row so spend can be attributed per provider. The single source of
+   * truth, mirroring `model`, rather than a string the caller re-derives.
+   */
+  readonly provider: string;
+  /**
    * The active model's identifier (e.g. `gpt-4o-mini`). The single source of
    * truth for the `model` a Labelling was produced under, so the persisted row
    * records what actually analysed the Article rather than a second, drifting
    * copy of the provider's model resolution.
    */
   readonly model: string;
-  analyzeArticle(input: AnalyzeArticleInput): Promise<ArticleAnalysisResult>;
+  analyzeArticle(input: AnalyzeArticleInput): Promise<AnalyzeArticleResult>;
 }
 
 /** The Article text handed to the LLM for a single Labelling. */
 export interface AnalyzeArticleInput {
   title: string;
   content: string;
+}
+
+/**
+ * The provider's token accounting for one `analyzeArticle` call (FR-10). Carried
+ * out of the seam so the labelling flow can record spend without the caller
+ * re-shaping each provider's idiosyncratic usage payload.
+ */
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+/**
+ * The validated analysis paired with the call's `usage`. A real call surfaces
+ * both; a cache hit reuses only the `analysis` (its spend was accounted for on
+ * the original miss), so usage lives here rather than inside the cached payload.
+ */
+export interface AnalyzeArticleResult {
+  analysis: ArticleAnalysisResult;
+  usage: TokenUsage;
 }
 
 /** DI token for the active `LlmService` (mirrors `FEED_FETCHER`). */

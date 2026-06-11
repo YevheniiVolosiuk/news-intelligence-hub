@@ -1,11 +1,13 @@
 import {Logger} from '@nestjs/common';
-import {ArticleAnalysisResult, parseAnalysisResult} from './article-analysis';
+import {parseAnalysisResult} from './article-analysis';
 import {fetchLlmHttpPost, LlmHttpPost, postWithTimeout} from './llm-http';
 import {
   analysisJsonSchema,
   AnalyzeArticleInput,
+  AnalyzeArticleResult,
   LlmService,
   PROMPT_VERSION,
+  TokenUsage,
 } from './llm-service';
 
 const ANALYSIS_INSTRUCTION =
@@ -25,6 +27,7 @@ export class OpenAiLlmService implements LlmService {
   private readonly logger = new Logger(OpenAiLlmService.name);
   private readonly post: LlmHttpPost;
   private readonly apiKey: string;
+  readonly provider = 'openai';
   readonly model: string;
   private readonly maxTokens: number;
   private readonly timeoutMs: number;
@@ -39,7 +42,7 @@ export class OpenAiLlmService implements LlmService {
 
   async analyzeArticle(
     input: AnalyzeArticleInput,
-  ): Promise<ArticleAnalysisResult> {
+  ): Promise<AnalyzeArticleResult> {
     const body = JSON.stringify({
       model: this.model,
       max_completion_tokens: this.maxTokens,
@@ -77,14 +80,34 @@ export class OpenAiLlmService implements LlmService {
 
     const payload = (await res.json()) as {
       choices?: {message?: {content?: string}}[];
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+      };
     };
     const content = payload.choices?.[0]?.message?.content ?? '';
-    const result = parseAnalysisResult(safeJsonParse(content));
+    const analysis = parseAnalysisResult(safeJsonParse(content));
     this.logger.log(
       `analyzeArticle provider=openai outcome=ok prompt_version=${PROMPT_VERSION}`,
     );
-    return result;
+    return {analysis, usage: openAiUsage(payload.usage)};
   }
+}
+
+/** Maps OpenAI's `usage` block to the seam's `TokenUsage`, defaulting to zero. */
+function openAiUsage(usage?: {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}): TokenUsage {
+  const promptTokens = usage?.prompt_tokens ?? 0;
+  const completionTokens = usage?.completion_tokens ?? 0;
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens: usage?.total_tokens ?? promptTokens + completionTokens,
+  };
 }
 
 /** Parses a JSON string, yielding `undefined` so a bad body fails validation. */
