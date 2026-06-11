@@ -26,12 +26,14 @@ export class StubLlmService implements LlmService {
     this.callCount = 0;
   }
 
-  async analyzeArticle(input: AnalyzeArticleInput): Promise<ArticleAnalysisResult> {
+  async analyzeArticle(
+    input: AnalyzeArticleInput,
+  ): Promise<ArticleAnalysisResult> {
     this.callCount += 1;
     if (this.error) throw this.error;
     const result = this.results.get(input.content);
     if (!result) {
-      throw new Error(`StubLlmService: no canned result for content`);
+      throw new Error('StubLlmService: no canned result for content');
     }
     return result;
   }

@@ -26,8 +26,12 @@ describe('parseAnalysisResult', () => {
   });
 
   it('raises LlmValidationError when a required field is missing', () => {
-    const {summary: _omitted, ...missingSummary} = valid;
-    expect(() => parseAnalysisResult(missingSummary)).toThrow(LlmValidationError);
+    expect(() =>
+      parseAnalysisResult({
+        importance: valid.importance,
+        entities: valid.entities,
+      }),
+    ).toThrow(LlmValidationError);
   });
 
   it('raises LlmValidationError for an Importance outside the fixed vocabulary', () => {
@@ -38,7 +42,10 @@ describe('parseAnalysisResult', () => {
 
   it('raises LlmValidationError for an Entity Type outside the fixed vocabulary', () => {
     expect(() =>
-      parseAnalysisResult({...valid, entities: [{name: 'Mars', type: 'planet'}]}),
+      parseAnalysisResult({
+        ...valid,
+        entities: [{name: 'Mars', type: 'planet'}],
+      }),
     ).toThrow(LlmValidationError);
   });
 
