@@ -22,6 +22,6 @@ import {BullArticleLabelProducer} from '../../infra/queues/bull-article-label-pr
     {provide: FEED_FETCHER, useFactory: () => new HttpFeedFetcher()},
     {provide: ARTICLE_LABEL_PRODUCER, useClass: BullArticleLabelProducer},
   ],
-  exports: [IngestionService, ArticlesRepository],
+  exports: [IngestionService, ArticlesRepository, ARTICLE_LABEL_PRODUCER],
 })
 export class IngestionModule {}

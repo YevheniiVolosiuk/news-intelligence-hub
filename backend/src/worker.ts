@@ -80,7 +80,13 @@ async function bootstrap(): Promise<void> {
     QUEUE_ARTICLE_LABEL,
     async (job: Job) => {
       const articleId: string = job.data.articleId;
-      await labelling.labelArticle(articleId);
+
+      // On the final attempt an exhausted provider outage defers the Article to
+      // `awaiting` rather than re-throwing; earlier attempts re-throw so BullMQ
+      // retries with backoff. `attemptsMade` is the count of prior runs.
+      const maxAttempts = job.opts.attempts ?? 1;
+      const finalAttempt = job.attemptsMade + 1 >= maxAttempts;
+      await labelling.labelArticle(articleId, {finalAttempt});
 
       log('info', 'job.completed', {
         queue: QUEUE_ARTICLE_LABEL,
@@ -103,12 +109,31 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // Tiny HTTP endpoint so the container has a meaningful health check.
+  // Tiny HTTP endpoint so the container has a meaningful health check, plus the
+  // manual re-drain trigger (Slice 4.6): a system-level POST that re-enqueues
+  // every `awaiting` Article once the provider has recovered. It lives on the
+  // worker's own server rather than the tenant-scoped API because re-drain is a
+  // cross-tenant operator action, not a per-User request.
   const healthPort = Number(process.env.WORKER_HEALTH_PORT ?? 3000);
   const healthServer = createServer((req, res) => {
     if (req.url === '/health') {
       res.writeHead(200, {'content-type': 'application/json'});
       res.end(JSON.stringify({ok: true, service: 'worker'}));
+      return;
+    }
+    if (req.url === '/redrain' && req.method === 'POST') {
+      labelling
+        .redrainAwaiting()
+        .then(reEnqueued => {
+          log('info', 'worker.redrain', {reEnqueued});
+          res.writeHead(200, {'content-type': 'application/json'});
+          res.end(JSON.stringify({ok: true, reEnqueued}));
+        })
+        .catch(err => {
+          log('error', 'worker.redrain.failed', {error: String(err)});
+          res.writeHead(500, {'content-type': 'application/json'});
+          res.end(JSON.stringify({ok: false}));
+        });
       return;
     }
     res.writeHead(404);

@@ -11,6 +11,11 @@ import {
   TokenUsage,
 } from '../../infra/llm/llm-service';
 import {llmCacheKey} from '../../infra/llm/llm-cache-key';
+import {LlmValidationError} from '../../infra/llm/article-analysis';
+import {
+  ARTICLE_LABEL_PRODUCER,
+  ArticleLabelProducer,
+} from '../../infra/queues/article-label-producer';
 
 /**
  * The single telemetry `operation` this slice writes: an Article being labelled.
@@ -43,22 +48,45 @@ export class LabellingService {
     private readonly llmCacheRepo: LlmCacheRepository,
     private readonly telemetryRepo: LlmTelemetryRepository,
     @Inject(LLM_SERVICE) private readonly llm: LlmService,
+    @Inject(ARTICLE_LABEL_PRODUCER)
+    private readonly labelProducer: ArticleLabelProducer,
   ) {}
 
-  async labelArticle(articleId: string): Promise<void> {
+  /**
+   * Manual re-drain (Slice 4.6): re-enqueue every `awaiting` Article so the
+   * worker reprocesses it once the provider has recovered. Only enqueues — the
+   * LLM is reached from the worker, never inline (Principle 3) — and never
+   * touches `failed` Articles, whose terminal is non-retryable. Returns the
+   * number re-enqueued. A scheduled re-drain is a later slice.
+   */
+  async redrainAwaiting(): Promise<number> {
+    const ids = await this.articlesRepo.findAwaitingIds();
+    for (const id of ids) {
+      await this.labelProducer.enqueueLabel(id);
+    }
+    this.logger.log(`redrain-awaiting outcome=enqueued count=${ids.length}`);
+    return ids.length;
+  }
+
+  async labelArticle(
+    articleId: string,
+    opts: {finalAttempt?: boolean} = {},
+  ): Promise<void> {
     const article = await this.articlesRepo.findById(articleId);
     if (!article) {
       this.logger.log(`label-article outcome=not-found articleId=${articleId}`);
       return;
     }
 
-    // A pre-filtered (or failed) Article bypasses the LLM by definition; only a
-    // `pending` Article — or a `processed` one being re-labelled by a job re-run
-    // — is eligible. Guard before the LLM call so a filtered Article never
-    // reaches a provider.
+    // A pre-filtered (or failed) Article bypasses the LLM by definition. Eligible
+    // states: `pending` (fresh), `processed` (a job re-run re-labelling), and
+    // `awaiting` (a re-drain reprocessing an Article the provider once deferred).
+    // `failed` stays ineligible — its terminal is non-retryable. Guard before the
+    // LLM call so an ineligible Article never reaches a provider.
     if (
       article.processing_state !== 'pending' &&
-      article.processing_state !== 'processed'
+      article.processing_state !== 'processed' &&
+      article.processing_state !== 'awaiting'
     ) {
       this.logger.log(
         `label-article outcome=skipped state=${article.processing_state} articleId=${articleId}`,
@@ -80,10 +108,15 @@ export class LabellingService {
       this.logger.log(`label-article cache=hit articleId=${articleId}`);
     } else {
       cacheHit = false;
-      const result = await this.llm.analyzeArticle({
-        title: article.title ?? '',
-        content: article.content ?? '',
-      });
+      let result;
+      try {
+        result = await this.llm.analyzeArticle({
+          title: article.title ?? '',
+          content: article.content ?? '',
+        });
+      } catch (err) {
+        return this.handleLabelFailure(articleId, err, opts);
+      }
       analysis = result.analysis;
       usage = result.usage;
       await this.llmCacheRepo.insert({
@@ -135,6 +168,46 @@ export class LabellingService {
 
     this.logger.log(
       `label-article outcome=ok articleId=${articleId} userId=${userId} importance=${analysis.importance}`,
+    );
+  }
+
+  /**
+   * Resolve a failed provider call into one of the two non-success terminals
+   * (Slice 4.6, Principle 2). The control flow throws back nothing trustworthy,
+   * so no Labelling, cache row, or ok-telemetry is written on either branch.
+   *
+   * - Provider outage (timeout / rate-limit / 5xx): retryable. Until retries are
+   *   spent the error is re-thrown so BullMQ retries with backoff; on the final
+   *   attempt the Article defers to `awaiting`.
+   * - Validation failure (response fails the zod schema): not retryable. Fail
+   *   fast to `failed` — a re-run would only reproduce the same bad shape; it
+   *   signals a prompt/model fix, so it is visibly flagged, never looped.
+   */
+  private async handleLabelFailure(
+    articleId: string,
+    err: unknown,
+    opts: {finalAttempt?: boolean},
+  ): Promise<void> {
+    const message = err instanceof Error ? err.message : String(err);
+
+    if (err instanceof LlmValidationError) {
+      // Non-retryable: a malformed shape will recur on every attempt. Fail fast
+      // to `failed` so it is visibly flagged for a prompt/model fix.
+      await this.articlesRepo.markFailed(articleId, message);
+      this.logger.warn(
+        `label-article outcome=failed articleId=${articleId} error=${message}`,
+      );
+      return;
+    }
+
+    if (!opts.finalAttempt) {
+      // Retries remain — surface the error so BullMQ retries with backoff.
+      throw err;
+    }
+
+    await this.articlesRepo.markAwaiting(articleId, message);
+    this.logger.warn(
+      `label-article outcome=awaiting articleId=${articleId} error=${message}`,
     );
   }
 }

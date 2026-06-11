@@ -14,6 +14,7 @@ import {StubFeedFetcher} from '../support/stub-feed-fetcher';
 import {StubFeedPullProducer} from '../support/stub-feed-pull-producer';
 import {StubArticleLabelProducer} from '../support/stub-article-label-producer';
 import {StubLlmService} from '../support/stub-llm-service';
+import {LlmValidationError} from '../../src/infra/llm/article-analysis';
 import {computeContentHash} from '../../src/common/utils/content-hash';
 import {llmCacheKey} from '../../src/infra/llm/llm-cache-key';
 import {runMigrations} from '../../src/infra/database/migrate';
@@ -30,6 +31,7 @@ describe('LabellingService.labelArticle (integration)', () => {
   let container: StartedPostgreSqlContainer;
   let pool: Pool;
   let llm: StubLlmService;
+  let labelProducer: StubArticleLabelProducer;
   let moduleRef: import('@nestjs/testing').TestingModule;
   let labelling: LabellingService;
 
@@ -40,6 +42,7 @@ describe('LabellingService.labelArticle (integration)', () => {
     await runMigrations(databaseUrl);
 
     llm = new StubLlmService();
+    labelProducer = new StubArticleLabelProducer();
 
     moduleRef = await Test.createTestingModule({
       imports: [WorkerModule],
@@ -49,7 +52,7 @@ describe('LabellingService.labelArticle (integration)', () => {
       .overrideProvider(FEED_PULL_PRODUCER)
       .useValue(new StubFeedPullProducer())
       .overrideProvider(ARTICLE_LABEL_PRODUCER)
-      .useValue(new StubArticleLabelProducer())
+      .useValue(labelProducer)
       .overrideProvider(LLM_SERVICE)
       .useValue(llm)
       .overrideProvider(CLOCK)
@@ -396,5 +399,154 @@ describe('LabellingService.labelArticle (integration)', () => {
       [cacheKey],
     );
     expect(rows[0].cnt).toBe(0);
+  });
+
+  it('drives the Article to awaiting with the error recorded when an outage is exhausted', async () => {
+    const content = 'Body whose provider stays down through the final attempt.';
+    const {articleId} = await insertPendingArticle(content);
+
+    // A provider outage (timeout / 5xx / rate-limit) on the *final* attempt:
+    // retries are spent, so the Article defers to `awaiting` rather than failing.
+    llm.failWith(new Error('provider timeout'));
+    await labelling.labelArticle(articleId, {finalAttempt: true});
+    llm.failWith(undefined);
+
+    const {rows: articles} = await pool.query(
+      'SELECT processing_state, processing_error FROM articles WHERE id = $1',
+      [articleId],
+    );
+    expect(articles[0].processing_state).toBe('awaiting');
+    expect(articles[0].processing_error).toContain('provider timeout');
+
+    // A deferred Article writes neither a Labelling nor a cache row — the outage
+    // produced nothing trustworthy to persist.
+    const {rows: labellings} = await pool.query(
+      'SELECT COUNT(*)::int AS cnt FROM labellings WHERE article_id = $1',
+      [articleId],
+    );
+    expect(labellings[0].cnt).toBe(0);
+
+    const cacheKey = llmCacheKey(
+      computeContentHash('An Article', content),
+      'stub-model',
+      'v1',
+    );
+    const {rows: cache} = await pool.query(
+      'SELECT COUNT(*)::int AS cnt FROM llm_cache WHERE cache_key = $1',
+      [cacheKey],
+    );
+    expect(cache[0].cnt).toBe(0);
+  });
+
+  it('re-throws an outage while retries remain, leaving the Article pending', async () => {
+    const content = 'Body whose provider blips on a non-final attempt.';
+    const {articleId} = await insertPendingArticle(content);
+
+    // Not the final attempt: the error must propagate so BullMQ retries with
+    // backoff. The Article is NOT deferred yet — it stays pending for the retry.
+    llm.failWith(new Error('provider 503'));
+    await expect(
+      labelling.labelArticle(articleId, {finalAttempt: false}),
+    ).rejects.toThrow('provider 503');
+    llm.failWith(undefined);
+
+    const {rows} = await pool.query(
+      'SELECT processing_state, processing_error FROM articles WHERE id = $1',
+      [articleId],
+    );
+    expect(rows[0].processing_state).toBe('pending');
+    expect(rows[0].processing_error).toBeNull();
+  });
+
+  it('fast-fails a validation-failing response to failed without retrying', async () => {
+    const content = 'Body whose provider returns an un-parseable shape.';
+    const {articleId} = await insertPendingArticle(content);
+
+    // A response that fails the zod schema is non-retryable: it signals a
+    // prompt/model fix, so even with retries nominally remaining the Article
+    // goes straight to `failed` (no rethrow, no retry loop) and is flagged.
+    llm.failWith(new LlmValidationError('importance: invalid enum value'));
+    await labelling.labelArticle(articleId, {finalAttempt: false});
+    llm.failWith(undefined);
+
+    const {rows: articles} = await pool.query(
+      'SELECT processing_state, processing_error FROM articles WHERE id = $1',
+      [articleId],
+    );
+    expect(articles[0].processing_state).toBe('failed');
+    expect(articles[0].processing_error).toContain('invalid enum value');
+
+    // Nothing trustworthy was produced: no Labelling, no cache row.
+    const {rows: labellings} = await pool.query(
+      'SELECT COUNT(*)::int AS cnt FROM labellings WHERE article_id = $1',
+      [articleId],
+    );
+    expect(labellings[0].cnt).toBe(0);
+
+    const cacheKey = llmCacheKey(
+      computeContentHash('An Article', content),
+      'stub-model',
+      'v1',
+    );
+    const {rows: cache} = await pool.query(
+      'SELECT COUNT(*)::int AS cnt FROM llm_cache WHERE cache_key = $1',
+      [cacheKey],
+    );
+    expect(cache[0].cnt).toBe(0);
+  });
+
+  it('re-drains awaiting Articles and leaves failed Articles alone', async () => {
+    const awaiting = await insertPendingArticle('Deferred body to re-drain.');
+    await pool.query(
+      "UPDATE articles SET processing_state = 'awaiting' WHERE id = $1",
+      [awaiting.articleId],
+    );
+    const failed = await insertPendingArticle('Permanently failed body.');
+    await pool.query(
+      "UPDATE articles SET processing_state = 'failed' WHERE id = $1",
+      [failed.articleId],
+    );
+
+    labelProducer.clear();
+    await labelling.redrainAwaiting();
+
+    // The awaiting Article is re-enqueued; the failed one is not — a validation
+    // failure is not retried by a re-drain. (Other suites may leave their own
+    // awaiting Articles, so scope the assertion to this test's two ids.)
+    expect(labelProducer.enqueued).toContain(awaiting.articleId);
+    expect(labelProducer.enqueued).not.toContain(failed.articleId);
+  });
+
+  it('reprocesses a re-drained awaiting Article through to processed', async () => {
+    const content = 'Body deferred during an outage, recovered on re-drain.';
+    const {userId, articleId} = await insertPendingArticle(content);
+
+    // Outage exhausts retries: the Article defers to `awaiting`.
+    llm.failWith(new Error('provider timeout'));
+    await labelling.labelArticle(articleId, {finalAttempt: true});
+    llm.failWith(undefined);
+
+    // The provider has recovered. The re-drained job runs the same seam again —
+    // an `awaiting` Article is eligible — and this time it succeeds.
+    llm.set(content, {
+      summary: 'Recovered analysis.',
+      importance: 'important',
+      entities: [],
+    });
+    await labelling.labelArticle(articleId);
+
+    const {rows: articles} = await pool.query(
+      'SELECT processing_state, processing_error FROM articles WHERE id = $1',
+      [articleId],
+    );
+    expect(articles[0].processing_state).toBe('processed');
+
+    const {rows: labellings} = await pool.query(
+      'SELECT user_id, summary FROM labellings WHERE article_id = $1',
+      [articleId],
+    );
+    expect(labellings).toHaveLength(1);
+    expect(labellings[0].user_id).toBe(userId);
+    expect(labellings[0].summary).toBe('Recovered analysis.');
   });
 });
